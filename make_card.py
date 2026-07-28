@@ -53,7 +53,9 @@ CYCLE_S = 12
 M_START = 50.0   # meteor becomes visible
 M_HIT = 66.0     # impact - everything else keys off this
 M_END = 84.0     # text finished resolving
-IMPACT = (150.0, 92.0)
+# On the text column, not the empty space beside the moon - the rain, wave and
+# diffraction are all clipped to the text block so nothing spills into the gaps.
+IMPACT = (430.0, 104.0)
 
 
 def _decode_frames(text, frames=FRAMES, seed=1):
@@ -178,19 +180,20 @@ def render(stats, path="assets/card.svg"):
     info_x, info_top = 372, 96
 
     delay = 0
-    styles, body = [], []
+    styles, body, moon_body = [], [], []
 
     # --- moon -----------------------------------------------------------
-    body.append(
+    # Kept out of `body` so it sits outside the shake group.
+    moon_body.append(
         f'<text x="{moon_x}" y="{moon_y}" text-anchor="middle" '
         f'font-family="{MONO}" font-size="{moon_fs}" fill="url(#moonGrad)" '
         f'filter="url(#glow)" class="moon" xml:space="preserve">'
     )
     for i, line in enumerate(moon):
-        body.append(
+        moon_body.append(
             f'<tspan x="{moon_x}" dy="{0 if i == 0 else moon_lh}">{_esc(line)}</tspan>'
         )
-    body.append("</text>")
+    moon_body.append("</text>")
 
     # --- header ---------------------------------------------------------
     body.append(
@@ -350,6 +353,12 @@ def render(stats, path="assets/card.svg"):
         )
     fx.append("</g>")
 
+    # Everything below is clipped to the text block, so the wave and the rain
+    # only ever play over the text - never in the empty space around it.
+    tz_x, tz_y = info_x - 14, 40.0
+    tz_w, tz_h = (W - 44) - info_x + 28, (y + 8) - 40.0
+    fx.append('<g clip-path="url(#textZone)">')
+
     # Shockwave. Scaled rather than animating the `r` attribute, since CSS
     # geometry properties are patchier across browsers; non-scaling-stroke
     # keeps the ring thin as it expands.
@@ -358,9 +367,9 @@ def render(stats, path="assets/card.svg"):
         f'stroke="{t["emerald_pale"]}" stroke-width="2" vector-effect="non-scaling-stroke"/>'
     )
 
-    # Matrix rain bursting out of the impact point.
-    for c in range(9):
-        cx = mx - 60 + c * 15
+    # Matrix rain bursting out of the impact point, kept inside the text block.
+    for c in range(11):
+        cx = min(max(mx - 75 + c * 15, tz_x + 6), tz_x + tz_w - 12)
         col = "".join(
             f'<tspan x="{cx:.1f}" dy="{0 if j == 0 else 13}">'
             f'{_esc(rng.choice(MATRIX_GLYPHS))}</tspan>' for j in range(7)
@@ -370,12 +379,15 @@ def render(stats, path="assets/card.svg"):
             f'font-size="12" fill="{t["emerald_pale"]}">{col}</text>'
         )
 
-    # Diffraction: thin full-width slices that flash and shear sideways.
+    # Diffraction: thin slices across the text column that flash and shear.
     for i in range(4):
         fx.append(
-            f'<rect class="nz n{i}" x="0" y="{rng.randint(70, H - 70)}" width="{W}" '
-            f'height="{rng.choice([2, 3, 4])}" fill="{t["emerald_pale"]}"/>'
+            f'<rect class="nz n{i}" x="{tz_x:.0f}" '
+            f'y="{rng.randint(int(tz_y) + 20, int(tz_y + tz_h) - 20)}" '
+            f'width="{tz_w:.0f}" height="{rng.choice([2, 3, 4])}" '
+            f'fill="{t["emerald_pale"]}"/>'
         )
+    fx.append("</g>")
     fx_svg = "".join(fx)
 
     fx_css = (
@@ -405,6 +417,18 @@ def render(stats, path="assets/card.svg"):
         f"{M_HIT + 7:.1f}%{{opacity:.14;transform:translateX(11px)}}"
         f"{M_HIT + 9:.1f}%,100%{{opacity:0;transform:translateX(0)}}}}"
         + "".join(f".n{i}{{animation-delay:{i * 0.28:.2f}s}}" for i in range(4))
+
+        # Impact shake on the text block only - the moon stays put, so the hit
+        # reads as landing on the text rather than rocking the whole card.
+        + f".shake{{animation:shakeIt {CYCLE_S}s linear infinite}}"
+        f"@keyframes shakeIt{{0%,{M_HIT:.1f}%{{transform:translate(0,0)}}"
+        f"{M_HIT + .6:.1f}%{{transform:translate(-4px,2px)}}"
+        f"{M_HIT + 1.4:.1f}%{{transform:translate(5px,-3px)}}"
+        f"{M_HIT + 2.2:.1f}%{{transform:translate(-3px,-1px)}}"
+        f"{M_HIT + 3.0:.1f}%{{transform:translate(3px,2px)}}"
+        f"{M_HIT + 3.8:.1f}%{{transform:translate(-2px,1px)}}"
+        f"{M_HIT + 4.6:.1f}%{{transform:translate(1px,-1px)}}"
+        f"{M_HIT + 5.4:.1f}%,100%{{transform:translate(0,0)}}}}"
     )
 
     # Frame-switching CSS. The decode burst runs from impact to M_END; the rest
@@ -447,6 +471,9 @@ def render(stats, path="assets/card.svg"):
     <stop offset="0%" stop-color="{t["emerald"]}" stop-opacity="0.28"/>
     <stop offset="100%" stop-color="{t["emerald"]}" stop-opacity="0"/>
   </radialGradient>
+  <clipPath id="textZone">
+    <rect x="{tz_x:.0f}" y="{tz_y:.0f}" width="{tz_w:.0f}" height="{tz_h:.0f}" rx="8"/>
+  </clipPath>
   <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
     <feGaussianBlur stdDeviation="2.2" result="b"/>
     <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
@@ -473,7 +500,8 @@ def render(stats, path="assets/card.svg"):
 <rect x="0.5" y="0.5" width="{W - 1}" height="{H - 1}" rx="14" fill="none" stroke="{t["border"]}"/>
 {_starfield(W, H)}
 <ellipse cx="190" cy="{H // 2}" rx="185" ry="185" fill="url(#halo)" class="halo"/>
-{"".join(body)}
+{"".join(moon_body)}
+<g class="shake">{"".join(body)}</g>
 {fx_svg}
 </svg>
 '''
