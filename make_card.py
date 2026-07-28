@@ -262,7 +262,10 @@ def render(stats, path="assets/card.svg"):
 </svg>
 '''
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
+    # newline="\n" keeps output identical on Windows and on the Ubuntu runner.
+    # Without it Python would emit CRLF locally and LF in CI, so every workflow
+    # run would rewrite all 40 lines and collide with any local regeneration.
+    with open(path, "w", encoding="utf-8", newline="\n") as f:
         f.write(svg)
     return path
 

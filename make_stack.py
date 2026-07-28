@@ -87,7 +87,7 @@ def load_icons(slugs):
                 print(f"WARNING: could not fetch '{slug}': {e}")
                 cache[slug] = ""
         os.makedirs(os.path.dirname(ICON_CACHE) or ".", exist_ok=True)
-        with open(ICON_CACHE, "w", encoding="utf-8") as f:
+        with open(ICON_CACHE, "w", encoding="utf-8", newline="\n") as f:
             json.dump(cache, f, indent=0, sort_keys=True)
     return cache
 
@@ -202,7 +202,8 @@ def render(path=OUT):
 </svg>
 '''
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
+    # See the note in make_card.render: LF everywhere, or Windows and CI fight.
+    with open(path, "w", encoding="utf-8", newline="\n") as f:
         f.write(svg)
     return path, W, H, len(clips)
 
