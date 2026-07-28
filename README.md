@@ -50,9 +50,9 @@ LinkedIn: .................... [in/janvinsalvador]
 
 <!--STATS-START-->
 – GitHub Stats
-Repos: ........ 0 {Contributed: 0} | Stars: ........ 0
-Commits: ...... 0 | Followers: ..... 0
-Lines of Code: ... 0 ( 0++, 0-- )
+Repos: ........ 5 {Contributed: 0} | Stars: ........ 0
+Commits: ...... 117 | Followers: ..... 0
+Lines of Code: ... 4,882 ( 4,768++, 114-- )
 <!--STATS-END-->
 </pre>
 </td>
