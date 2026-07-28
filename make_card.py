@@ -26,7 +26,12 @@ THEME = {
     "emerald_pale": "#6EE7B7",
     "text": "#C9D1D9",
     "dim": "#7D8DA1",
+    "red": "#EF4444",
+    "red_light": "#F87171",
 }
+
+# INFO keys whose value gets the matrix-glitch treatment.
+GLITCH_KEYS = {"Host"}
 
 INFO = [
     ("OS", "Windows"),
@@ -169,12 +174,15 @@ def render(stats, path="assets/card.svg"):
             continue
         key, val = row
         dots = "." * max(2, label_cols - len(key))
+        # The fill attribute stays as the resting colour; the CSS animation
+        # overrides it during a glitch burst (CSS beats presentation attrs).
+        cls = ' class="gl-host"' if key in GLITCH_KEYS else ""
         body.append(
             f'<text x="{info_x}" y="{y:.1f}" font-family="{MONO}" '
             f'font-size="{info_fs}" class="fade f{delay}" xml:space="preserve">'
             f'<tspan fill="{t["emerald"]}">{_esc(key)}</tspan>'
             f'<tspan fill="{t["border"]}"> {dots} </tspan>'
-            f'<tspan fill="{t["text"]}">{_esc(val)}</tspan></text>'
+            f'<tspan fill="{t["text"]}"{cls}>{_esc(val)}</tspan></text>'
         )
         styles.append(f".f{delay}{{animation-delay:{delay * 55}ms}}")
         delay += 1
@@ -194,27 +202,37 @@ def render(stats, path="assets/card.svg"):
     def n(v):
         return f"{v:,}"
 
+    def plain(v):
+        return f'<tspan fill="{t["text"]}">{_esc(v)}</tspan>'
+
     if stats.get("loc_skipped"):
-        loc = "skipped"
+        loc_markup = plain("skipped")
     else:
-        loc = (f'{n(stats["additions"] + stats["deletions"])} '
-               f'({n(stats["additions"])}++, {n(stats["deletions"])}--)')
+        # Split into separate tspans so the additions can glitch green and the
+        # deletions red, independently of the surrounding text.
+        loc_markup = (
+            f'{plain(n(stats["additions"] + stats["deletions"]) + " (")}'
+            f'<tspan fill="{t["text"]}" class="gl-add">{n(stats["additions"])}++</tspan>'
+            f'{plain(", ")}'
+            f'<tspan fill="{t["text"]}" class="gl-del">{n(stats["deletions"])}--</tspan>'
+            f'{plain(")")}'
+        )
 
     stat_rows = [
-        ("Repos", f'{n(stats["repos"])}  (contributed to {n(stats["contributed"])})'),
-        ("Stars", n(stats["stars"])),
-        ("Commits", n(stats["commits"])),
-        ("Followers", n(stats["followers"])),
-        ("Lines of Code", loc),
+        ("Repos", plain(f'{n(stats["repos"])}  (contributed to {n(stats["contributed"])})')),
+        ("Stars", plain(n(stats["stars"]))),
+        ("Commits", plain(n(stats["commits"]))),
+        ("Followers", plain(n(stats["followers"]))),
+        ("Lines of Code", loc_markup),
     ]
-    for key, val in stat_rows:
+    for key, val_markup in stat_rows:
         dots = "." * max(2, label_cols - len(key))
         body.append(
             f'<text x="{info_x}" y="{y:.1f}" font-family="{MONO}" '
             f'font-size="{info_fs}" class="fade f{delay}" xml:space="preserve">'
             f'<tspan fill="{t["emerald"]}">{_esc(key)}</tspan>'
             f'<tspan fill="{t["border"]}"> {dots} </tspan>'
-            f'<tspan fill="{t["text"]}">{_esc(val)}</tspan></text>'
+            f'{val_markup}</text>'
         )
         styles.append(f".f{delay}{{animation-delay:{delay * 55}ms}}")
         delay += 1
@@ -252,6 +270,45 @@ def render(stats, path="assets/card.svg"):
                       50% {{ opacity:1; transform:scale(1.06); }} }}
   .star {{ animation: twinkle 4s ease-in-out infinite; }}
   @keyframes twinkle {{ 0%,100% {{ opacity:.15; }} 50% {{ opacity:.7; }} }}
+
+  /* Matrix glitch: long calm stretch, then a short burst of hard colour snaps.
+     steps(1,end) prevents the browser from tweening between colours, which
+     would read as a gentle fade instead of a glitch. Offset delays keep the
+     three elements from firing in unison. */
+  .gl-host, .gl-add, .gl-del {{
+    animation-duration: 7s;
+    animation-iteration-count: infinite;
+    animation-timing-function: steps(1, end);
+  }}
+  .gl-host {{ animation-name: glHost; }}
+  .gl-add  {{ animation-name: glAdd; animation-delay: 2.3s; }}
+  .gl-del  {{ animation-name: glDel; animation-delay: 3.9s; }}
+
+  @keyframes glHost {{
+    0%,84%,100% {{ fill:{t["text"]}; opacity:1; }}
+    85% {{ fill:{t["red"]};          opacity:.7; }}
+    87% {{ fill:{t["emerald_pale"]}; opacity:1; }}
+    89% {{ fill:{t["red"]};          opacity:.55; }}
+    91% {{ fill:{t["emerald_pale"]}; opacity:1; }}
+    93% {{ fill:{t["red"]};          opacity:.85; }}
+    95% {{ fill:{t["text"]};         opacity:1; }}
+  }}
+  @keyframes glAdd {{
+    0%,86%,100% {{ fill:{t["text"]}; }}
+    87% {{ fill:{t["emerald_pale"]}; }}
+    89% {{ fill:{t["text"]}; }}
+    91% {{ fill:{t["emerald_pale"]}; }}
+    93% {{ fill:{t["emerald"]}; }}
+    95% {{ fill:{t["text"]}; }}
+  }}
+  @keyframes glDel {{
+    0%,86%,100% {{ fill:{t["text"]}; }}
+    87% {{ fill:{t["red"]}; }}
+    89% {{ fill:{t["text"]}; }}
+    91% {{ fill:{t["red_light"]}; }}
+    93% {{ fill:{t["red"]}; }}
+    95% {{ fill:{t["text"]}; }}
+  }}
   {" ".join(styles)}
 </style>
 <rect width="{W}" height="{H}" rx="14" fill="url(#bg)"/>
@@ -306,7 +363,9 @@ def demo():
 
     stats = dict(repos=5, contributed=0, stars=0, commits=117, followers=0,
                  additions=4768, deletions=114, loc_skipped=False)
-    p = render(stats, "assets/card.svg")
+    # Deliberately NOT assets/card.svg - these are dummy numbers, and writing
+    # them to the real card would overwrite the live stats the Action fetched.
+    p = render(stats, "assets/_demo_card.svg")
     svg = open(p, encoding="utf-8").read()
     assert "117" in svg and "4,768" in svg, "stats missing from SVG"
     assert svg.count("<svg") == 1 and svg.rstrip().endswith("</svg>")
