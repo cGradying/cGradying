@@ -117,7 +117,7 @@ def render(path=OUT):
             f'<rect x="{PAD}" y="{y + 1}" width="3" height="11" rx="1.5" fill="{accent}"/>'
             f'<text x="{PAD + 10}" y="{y + 10.5}" font-family="{MONO}" '
             f'font-size="{SEC_TITLE_FS}" font-weight="700" fill="{accent}" '
-            f'letter-spacing="0.4">{title}</text></g>'
+            f'letter-spacing="0.4">{_esc(title)}</text></g>'
         )
         idx += 1
         y += 22
@@ -221,6 +221,10 @@ def demo():
     p, w, h, n = render()
     svg = open(p, encoding="utf-8").read()
     assert svg.count("<svg") == 1 and svg.rstrip().endswith("</svg>")
+    # Must be well-formed XML or browsers render nothing at all - an unescaped
+    # "&" in a label silently produced a blank image once already.
+    import xml.etree.ElementTree as ET
+    ET.parse(p)
     assert n == sum(len(i) for _, _, i in STACK), "chip count mismatch"
     # No chip may spill past the right edge or below the canvas.
     for x, y, cw, ch in re.findall(
