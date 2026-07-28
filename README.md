@@ -15,49 +15,15 @@
 [![Email](https://img.shields.io/badge/Email-0B1120?style=for-the-badge&logo=gmail&logoColor=34D399&labelColor=0B1120)](mailto:cgradying@gmail.com)
 [![Facebook](https://img.shields.io/badge/Facebook-0B1120?style=for-the-badge&logo=facebook&logoColor=34D399&labelColor=0B1120)](https://www.facebook.com/janvin69)
 
-## 🎮 Game Development
+## 🧰 Tech Stack
 
-![Unity](https://img.shields.io/badge/Unity-0B1120?style=flat-square&logo=unity&logoColor=6EE7B7&labelColor=0B1120)
-![Unreal Engine](https://img.shields.io/badge/Unreal_Engine-0B1120?style=flat-square&logo=unrealengine&logoColor=6EE7B7&labelColor=0B1120)
-![Godot](https://img.shields.io/badge/Godot-0B1120?style=flat-square&logo=godotengine&logoColor=6EE7B7&labelColor=0B1120)
-![C#](https://img.shields.io/badge/C%23-0B1120?style=flat-square&logo=csharp&logoColor=6EE7B7&labelColor=0B1120)
-![Blender](https://img.shields.io/badge/Blender-0B1120?style=flat-square&logo=blender&logoColor=6EE7B7&labelColor=0B1120)
-![Aseprite](https://img.shields.io/badge/Aseprite-0B1120?style=flat-square&logo=aseprite&logoColor=6EE7B7&labelColor=0B1120)
-![Steam](https://img.shields.io/badge/Steamworks-0B1120?style=flat-square&logo=steam&logoColor=6EE7B7&labelColor=0B1120)
+<!--
+  Generated (assets/stack.svg) - do not hand-edit. Edit STACK in make_stack.py
+  and run:  python make_stack.py
+  Logos come from Simple Icons and are cached in assets/icons.json.
+-->
 
-## 🤖 AI / Machine Learning
-
-![PyTorch](https://img.shields.io/badge/PyTorch-0B1120?style=flat-square&logo=pytorch&logoColor=34D399&labelColor=0B1120)
-![TensorFlow](https://img.shields.io/badge/TensorFlow-0B1120?style=flat-square&logo=tensorflow&logoColor=34D399&labelColor=0B1120)
-![Keras](https://img.shields.io/badge/Keras-0B1120?style=flat-square&logo=keras&logoColor=34D399&labelColor=0B1120)
-![scikit-learn](https://img.shields.io/badge/scikit--learn-0B1120?style=flat-square&logo=scikitlearn&logoColor=34D399&labelColor=0B1120)
-![Hugging Face](https://img.shields.io/badge/Hugging_Face-0B1120?style=flat-square&logo=huggingface&logoColor=34D399&labelColor=0B1120)
-![OpenCV](https://img.shields.io/badge/OpenCV-0B1120?style=flat-square&logo=opencv&logoColor=34D399&labelColor=0B1120)
-![NumPy](https://img.shields.io/badge/NumPy-0B1120?style=flat-square&logo=numpy&logoColor=34D399&labelColor=0B1120)
-![Pandas](https://img.shields.io/badge/Pandas-0B1120?style=flat-square&logo=pandas&logoColor=34D399&labelColor=0B1120)
-![Jupyter](https://img.shields.io/badge/Jupyter-0B1120?style=flat-square&logo=jupyter&logoColor=34D399&labelColor=0B1120)
-
-## 🛠️ Software Engineering
-
-![Python](https://img.shields.io/badge/Python-0B1120?style=flat-square&logo=python&logoColor=10B981&labelColor=0B1120)
-![C++](https://img.shields.io/badge/C%2B%2B-0B1120?style=flat-square&logo=cplusplus&logoColor=10B981&labelColor=0B1120)
-![Java](https://img.shields.io/badge/Java-0B1120?style=flat-square&logo=openjdk&logoColor=10B981&labelColor=0B1120)
-![TypeScript](https://img.shields.io/badge/TypeScript-0B1120?style=flat-square&logo=typescript&logoColor=10B981&labelColor=0B1120)
-![Git](https://img.shields.io/badge/Git-0B1120?style=flat-square&logo=git&logoColor=10B981&labelColor=0B1120)
-![Docker](https://img.shields.io/badge/Docker-0B1120?style=flat-square&logo=docker&logoColor=10B981&labelColor=0B1120)
-![Linux](https://img.shields.io/badge/Linux-0B1120?style=flat-square&logo=linux&logoColor=10B981&labelColor=0B1120)
-![AWS](https://img.shields.io/badge/AWS-0B1120?style=flat-square&logo=amazonwebservices&logoColor=10B981&labelColor=0B1120)
-
-## 🌐 Web — Frontend & Backend
-
-![React](https://img.shields.io/badge/React-0B1120?style=flat-square&logo=react&logoColor=6EE7B7&labelColor=0B1120)
-![Next.js](https://img.shields.io/badge/Next.js-0B1120?style=flat-square&logo=nextdotjs&logoColor=6EE7B7&labelColor=0B1120)
-![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-0B1120?style=flat-square&logo=tailwindcss&logoColor=6EE7B7&labelColor=0B1120)
-![Node.js](https://img.shields.io/badge/Node.js-0B1120?style=flat-square&logo=nodedotjs&logoColor=6EE7B7&labelColor=0B1120)
-![FastAPI](https://img.shields.io/badge/FastAPI-0B1120?style=flat-square&logo=fastapi&logoColor=6EE7B7&labelColor=0B1120)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-0B1120?style=flat-square&logo=postgresql&logoColor=6EE7B7&labelColor=0B1120)
-![MongoDB](https://img.shields.io/badge/MongoDB-0B1120?style=flat-square&logo=mongodb&logoColor=6EE7B7&labelColor=0B1120)
-![Vercel](https://img.shields.io/badge/Vercel-0B1120?style=flat-square&logo=vercel&logoColor=6EE7B7&labelColor=0B1120)
+<img src="assets/stack.svg" width="100%" alt="Tech stack - Game development: Unity, Unreal, Godot, C#, Blender, Aseprite, Steamworks. AI/ML: PyTorch, TensorFlow, Keras, scikit-learn, Hugging Face, OpenCV, NumPy, Pandas, Jupyter. Software: Python, C++, Java, TypeScript, Git, Docker, Linux, AWS. Web: React, Next.js, Tailwind, Node.js, FastAPI, PostgreSQL, MongoDB, Vercel." />
 
 ## 📊 GitHub Stats
 
