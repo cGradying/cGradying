@@ -23,7 +23,7 @@
   Logos come from Simple Icons and are cached in assets/icons.json.
 -->
 
-<img src="assets/stack.svg" width="100%" alt="Tech stack - Game development: Unity, Unreal, Godot, C#, Blender, Aseprite, Steamworks. AI/ML: PyTorch, TensorFlow, Keras, scikit-learn, Hugging Face, OpenCV, NumPy, Pandas, Jupyter. Software: Python, C++, Java, TypeScript, Git, Docker, Linux, AWS. Web: React, Next.js, Tailwind, Node.js, FastAPI, PostgreSQL, MongoDB, Vercel." />
+<img src="assets/tech-stack.svg" width="100%" alt="Tech stack - Game development: Unity, Unreal, Godot, .NET, Blender, Aseprite, Steamworks. AI/ML: PyTorch, TensorFlow, Keras, scikit-learn, Hugging Face, OpenCV, NumPy, Pandas, Jupyter. Software: Python, C++, Java, TypeScript, Git, Docker, Linux, AWS. Web: React, Next.js, Tailwind, Node.js, FastAPI, PostgreSQL, MongoDB, Vercel." />
 
 ## 📊 GitHub Stats
 
