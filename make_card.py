@@ -12,8 +12,16 @@ JavaScript - so nothing here relies on scripting.
 Edit INFO below to change the text block. Edit THEME to restyle.
 """
 import html
+import json
 import math
 import os
+import random
+
+# Last-fetched stats, written by update_stats.py. Kept beside the card so the
+# design can be re-rendered locally without a GitHub token - otherwise the only
+# copy of the numbers is the SVG itself, and tweaking the layout means either
+# scraping them back out or clobbering them with stale ones.
+STATS_PATH = "assets/stats.json"
 
 # --- theme: "astra moon" deep space + emerald green -------------------------
 THEME = {
@@ -30,8 +38,35 @@ THEME = {
     "red_light": "#F87171",
 }
 
-# INFO keys whose value gets the matrix-glitch treatment.
+# INFO keys whose value gets the matrix-decode treatment.
 GLITCH_KEYS = {"Host"}
+
+# ASCII only, so every glyph is guaranteed the same advance width as the real
+# text - a proportional fallback glyph would make the line jitter in width.
+MATRIX_GLYPHS = "01ABCDEF#%&$@*+=/<>[]{}|?!~^"
+FRAMES = 7  # scrambled frames shown before the text resolves
+
+
+def _decode_frames(text, frames=FRAMES, seed=1):
+    """Progressive 'matrix decode' states for `text`.
+
+    Frame i has the first i/frames characters already resolved and the rest
+    replaced with random glyphs, so playing the frames in order looks like the
+    line resolving left to right. Spaces are never scrambled, which keeps the
+    word shape readable while it decodes.
+
+    Returns [(resolved_prefix, scrambled_suffix), ...]. Seeded so the render
+    stays byte-identical across runs.
+    """
+    rng = random.Random(seed)
+    out = []
+    for f in range(frames):
+        keep = int(len(text) * f / frames)
+        tail = "".join(
+            ch if ch == " " else rng.choice(MATRIX_GLYPHS) for ch in text[keep:]
+        )
+        out.append((text[:keep], tail))
+    return out
 
 INFO = [
     ("OS", "Windows"),
@@ -167,23 +202,60 @@ def render(stats, path="assets/card.svg"):
     # Leader dots are drawn as a separate dim tspan so the key and value keep
     # their own colours while still lining up in the monospace grid.
     label_cols = 24
+
+    def row_text(cls, key, value_html, yy):
+        dots = "." * max(2, label_cols - len(key))
+        return (
+            f'<text x="{info_x}" y="{yy:.1f}" font-family="{MONO}" '
+            f'font-size="{info_fs}"{cls} xml:space="preserve">'
+            f'<tspan fill="{t["emerald"]}">{_esc(key)}</tspan>'
+            f'<tspan fill="{t["border"]}"> {dots} </tspan>'
+            f'{value_html}</text>'
+        )
+
+    def glitch_stack(key, make_value, group, yy, fade_idx):
+        """Stack FRAMES scrambled copies plus the resolved one.
+
+        Every copy is a full row laid out by the same font, so they line up
+        exactly without needing to know the font's advance width. CSS shows one
+        at a time; the wrapping <g> keeps the normal staggered entrance.
+        """
+        parts = [f'<g class="fade f{fade_idx}">']
+        for i in range(FRAMES):
+            parts.append(row_text(f' class="gv gv{i} {group}"', key, make_value(i), yy))
+        parts.append(row_text(f' class="gv gvR {group}"', key, make_value(None), yy))
+        parts.append("</g>")
+        return "".join(parts)
+
     y = info_top
     for row in INFO:
         if row is None:
             y += info_lh * 0.5
             continue
         key, val = row
-        dots = "." * max(2, label_cols - len(key))
-        # The fill attribute stays as the resting colour; the CSS animation
-        # overrides it during a glitch burst (CSS beats presentation attrs).
-        cls = ' class="gl-host"' if key in GLITCH_KEYS else ""
-        body.append(
-            f'<text x="{info_x}" y="{y:.1f}" font-family="{MONO}" '
-            f'font-size="{info_fs}" class="fade f{delay}" xml:space="preserve">'
-            f'<tspan fill="{t["emerald"]}">{_esc(key)}</tspan>'
-            f'<tspan fill="{t["border"]}"> {dots} </tspan>'
-            f'<tspan fill="{t["text"]}"{cls}>{_esc(val)}</tspan></text>'
-        )
+        if key in GLITCH_KEYS:
+            frames = _decode_frames(val, seed=len(val))
+
+            def host_value(i, _val=val, _frames=frames):
+                if i is None:
+                    return f'<tspan fill="{t["text"]}">{_esc(_val)}</tspan>'
+                keep, tail = _frames[i]
+                # Alternate the scramble colour so it flickers between matrix
+                # green and red on the way to resolving white.
+                col = t["emerald_pale"] if i % 2 == 0 else t["red"]
+                return (f'<tspan fill="{t["text"]}">{_esc(keep)}</tspan>'
+                        f'<tspan fill="{col}">{_esc(tail)}</tspan>')
+
+            body.append(glitch_stack(key, host_value, "gr-host", y, delay))
+        else:
+            dots = "." * max(2, label_cols - len(key))
+            body.append(
+                f'<text x="{info_x}" y="{y:.1f}" font-family="{MONO}" '
+                f'font-size="{info_fs}" class="fade f{delay}" xml:space="preserve">'
+                f'<tspan fill="{t["emerald"]}">{_esc(key)}</tspan>'
+                f'<tspan fill="{t["border"]}"> {dots} </tspan>'
+                f'<tspan fill="{t["text"]}">{_esc(val)}</tspan></text>'
+            )
         styles.append(f".f{delay}{{animation-delay:{delay * 55}ms}}")
         delay += 1
         y += info_lh
@@ -205,38 +277,72 @@ def render(stats, path="assets/card.svg"):
     def plain(v):
         return f'<tspan fill="{t["text"]}">{_esc(v)}</tspan>'
 
-    if stats.get("loc_skipped"):
-        loc_markup = plain("skipped")
-    else:
-        # Split into separate tspans so the additions can glitch green and the
-        # deletions red, independently of the surrounding text.
-        loc_markup = (
-            f'{plain(n(stats["additions"] + stats["deletions"]) + " (")}'
-            f'<tspan fill="{t["text"]}" class="gl-add">{n(stats["additions"])}++</tspan>'
-            f'{plain(", ")}'
-            f'<tspan fill="{t["text"]}" class="gl-del">{n(stats["deletions"])}--</tspan>'
-            f'{plain(")")}'
-        )
+    add_txt = f'{n(stats["additions"])}++'
+    del_txt = f'{n(stats["deletions"])}--'
+    add_frames = _decode_frames(add_txt, seed=11)
+    del_frames = _decode_frames(del_txt, seed=29)
+    total_txt = n(stats["additions"] + stats["deletions"])
+
+    def loc_value(i):
+        """Frame i of the LOC row; i is None for the resolved state."""
+        if i is None:
+            add_html = f'<tspan fill="{t["text"]}">{_esc(add_txt)}</tspan>'
+            del_html = f'<tspan fill="{t["text"]}">{_esc(del_txt)}</tspan>'
+        else:
+            ak, at = add_frames[i]
+            dk, dt = del_frames[i]
+            add_html = (f'<tspan fill="{t["text"]}">{_esc(ak)}</tspan>'
+                        f'<tspan fill="{t["emerald_pale"]}">{_esc(at)}</tspan>')
+            del_html = (f'<tspan fill="{t["text"]}">{_esc(dk)}</tspan>'
+                        f'<tspan fill="{t["red"]}">{_esc(dt)}</tspan>')
+        return (f'{plain(total_txt + " (")}{add_html}{plain(", ")}'
+                f'{del_html}{plain(")")}')
 
     stat_rows = [
         ("Repos", plain(f'{n(stats["repos"])}  (contributed to {n(stats["contributed"])})')),
         ("Stars", plain(n(stats["stars"]))),
         ("Commits", plain(n(stats["commits"]))),
         ("Followers", plain(n(stats["followers"]))),
-        ("Lines of Code", loc_markup),
+        ("Lines of Code", plain("skipped") if stats.get("loc_skipped") else None),
     ]
     for key, val_markup in stat_rows:
-        dots = "." * max(2, label_cols - len(key))
-        body.append(
-            f'<text x="{info_x}" y="{y:.1f}" font-family="{MONO}" '
-            f'font-size="{info_fs}" class="fade f{delay}" xml:space="preserve">'
-            f'<tspan fill="{t["emerald"]}">{_esc(key)}</tspan>'
-            f'<tspan fill="{t["border"]}"> {dots} </tspan>'
-            f'{val_markup}</text>'
-        )
+        if val_markup is None:  # the animated LOC row
+            body.append(glitch_stack(key, loc_value, "gr-loc", y, delay))
+        else:
+            dots = "." * max(2, label_cols - len(key))
+            body.append(
+                f'<text x="{info_x}" y="{y:.1f}" font-family="{MONO}" '
+                f'font-size="{info_fs}" class="fade f{delay}" xml:space="preserve">'
+                f'<tspan fill="{t["emerald"]}">{_esc(key)}</tspan>'
+                f'<tspan fill="{t["border"]}"> {dots} </tspan>'
+                f'{val_markup}</text>'
+            )
         styles.append(f".f{delay}{{animation-delay:{delay * 55}ms}}")
         delay += 1
         y += info_lh
+
+    # Frame-switching CSS. The decode burst occupies W0%..W1% of the loop; the
+    # rest of the cycle shows the resolved text. steps(1,end) makes each frame
+    # snap into place instead of cross-fading, which is what sells the glitch.
+    W0, W1, CYCLE = 84.0, 95.0, "7s"
+    span = (W1 - W0) / FRAMES
+    kf = [
+        f".gv{{animation-duration:{CYCLE};animation-iteration-count:infinite;"
+        f"animation-timing-function:steps(1,end)}}",
+        f"@keyframes gvR{{0%,{W0:.2f}%{{opacity:1}}"
+        f"{W0:.2f}%,{W1:.2f}%{{opacity:0}}{W1:.2f}%,100%{{opacity:1}}}}",
+        ".gvR{animation-name:gvR}",
+        # Offset so the two rows decode at different moments.
+        ".gr-host{animation-delay:0s}.gr-loc{animation-delay:3.5s}",
+    ]
+    for i in range(FRAMES):
+        a, b = W0 + i * span, W0 + (i + 1) * span
+        kf.append(
+            f"@keyframes gv{i}{{0%,{a:.2f}%{{opacity:0}}"
+            f"{a:.2f}%,{b:.2f}%{{opacity:1}}{b:.2f}%,100%{{opacity:0}}}}"
+            f".gv{i}{{animation-name:gv{i}}}"
+        )
+    glitch_css = "".join(kf)
 
     svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}" role="img" aria-label="cGradying GitHub profile card">
 <defs>
@@ -271,44 +377,7 @@ def render(stats, path="assets/card.svg"):
   .star {{ animation: twinkle 4s ease-in-out infinite; }}
   @keyframes twinkle {{ 0%,100% {{ opacity:.15; }} 50% {{ opacity:.7; }} }}
 
-  /* Matrix glitch: long calm stretch, then a short burst of hard colour snaps.
-     steps(1,end) prevents the browser from tweening between colours, which
-     would read as a gentle fade instead of a glitch. Offset delays keep the
-     three elements from firing in unison. */
-  .gl-host, .gl-add, .gl-del {{
-    animation-duration: 7s;
-    animation-iteration-count: infinite;
-    animation-timing-function: steps(1, end);
-  }}
-  .gl-host {{ animation-name: glHost; }}
-  .gl-add  {{ animation-name: glAdd; animation-delay: 2.3s; }}
-  .gl-del  {{ animation-name: glDel; animation-delay: 3.9s; }}
-
-  @keyframes glHost {{
-    0%,84%,100% {{ fill:{t["text"]}; opacity:1; }}
-    85% {{ fill:{t["red"]};          opacity:.7; }}
-    87% {{ fill:{t["emerald_pale"]}; opacity:1; }}
-    89% {{ fill:{t["red"]};          opacity:.55; }}
-    91% {{ fill:{t["emerald_pale"]}; opacity:1; }}
-    93% {{ fill:{t["red"]};          opacity:.85; }}
-    95% {{ fill:{t["text"]};         opacity:1; }}
-  }}
-  @keyframes glAdd {{
-    0%,86%,100% {{ fill:{t["text"]}; }}
-    87% {{ fill:{t["emerald_pale"]}; }}
-    89% {{ fill:{t["text"]}; }}
-    91% {{ fill:{t["emerald_pale"]}; }}
-    93% {{ fill:{t["emerald"]}; }}
-    95% {{ fill:{t["text"]}; }}
-  }}
-  @keyframes glDel {{
-    0%,86%,100% {{ fill:{t["text"]}; }}
-    87% {{ fill:{t["red"]}; }}
-    89% {{ fill:{t["text"]}; }}
-    91% {{ fill:{t["red_light"]}; }}
-    93% {{ fill:{t["red"]}; }}
-    95% {{ fill:{t["text"]}; }}
-  }}
+  {glitch_css}
   {" ".join(styles)}
 </style>
 <rect width="{W}" height="{H}" rx="14" fill="url(#bg)"/>
@@ -377,5 +446,18 @@ def demo():
     print("\n".join(m))
 
 
-if __name__ == "__main__":
+def main():
+    """Self-check, then re-render the real card from the last saved stats."""
     demo()
+    if os.path.exists(STATS_PATH):
+        with open(STATS_PATH, encoding="utf-8") as f:
+            stats = json.load(f)
+        render(stats, "assets/card.svg")
+        print(f"re-rendered assets/card.svg from {STATS_PATH}")
+    else:
+        print(f"no {STATS_PATH} yet - assets/card.svg left untouched "
+              f"(the Action writes it on its next run)")
+
+
+if __name__ == "__main__":
+    main()
