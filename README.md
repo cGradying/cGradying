@@ -8,18 +8,10 @@
 
 <img src="assets/card.svg" width="100%" alt="cGradying - Student at Polytechnic University of the Philippines. Building AI-integrated products." />
 
-## 🌐 Socials
-
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-0B1120?style=for-the-badge&logo=linkedin&logoColor=34D399&labelColor=0B1120)](https://www.linkedin.com/in/janvin-salvador-869a8a390/)
-[![GitHub](https://img.shields.io/badge/GitHub-0B1120?style=for-the-badge&logo=github&logoColor=34D399&labelColor=0B1120)](https://github.com/cGradying)
-[![Email](https://img.shields.io/badge/Email-0B1120?style=for-the-badge&logo=gmail&logoColor=34D399&labelColor=0B1120)](mailto:cgradying@gmail.com)
-[![Facebook](https://img.shields.io/badge/Facebook-0B1120?style=for-the-badge&logo=facebook&logoColor=34D399&labelColor=0B1120)](https://www.facebook.com/janvin69)
-
-## 🧰 Tech Stack
-
 <!--
-  Generated (assets/stack.svg) - do not hand-edit. Edit STACK in make_stack.py
-  and run:  python make_stack.py
+  Generated (assets/tech-stack.svg) - do not hand-edit. Edit STACK in
+  make_stack.py and run:  python make_stack.py
+  The panel draws its own "Tech Stack" title, so there is no markdown heading.
   Logos come from Simple Icons and are cached in assets/icons.json.
 -->
 
