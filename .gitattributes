@@ -1,0 +1,6 @@
+# Generated assets are written with LF by make_card.py / make_stack.py.
+# Pinning them here stops Git's autocrlf from reintroducing the CRLF/LF churn
+# between local Windows runs and the Ubuntu Actions runner.
+*.svg text eol=lf
+*.json text eol=lf
+*.py text eol=lf
