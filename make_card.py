@@ -104,10 +104,10 @@ def _decode_frames(text, frames=FRAMES, seed=1, mode="ltr"):
     return out
 
 INFO = [
-    ("OS", "Windows"),
+    ("OS", ["Windows", "macOS (planned)", "Windows / macOS"]),
     ("Host", "Polytechnic University of the Philippines"),
-    ("Role", "Student"),
-    ("IDE", "VS Code"),
+    ("Role", ["Student", "Computer Science Student", "BS Computer Science"]),
+    ("IDE", ["VS Code", "JetBrains", "PyCharm"]),
     None,
     ("Languages.Programming", "Python, C++, C#, Java, TypeScript"),
     ("Languages.Real", "English, Filipino"),
