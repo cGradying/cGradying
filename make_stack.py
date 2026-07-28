@@ -29,7 +29,8 @@ CDN = "https://cdn.jsdelivr.net/npm/simple-icons@13/icons/{slug}.svg"
 STACK = [
     ("Game Development", "emerald_pale", [
         ("Unity", "unity"), ("Unreal", "unrealengine"), ("Godot", "godotengine"),
-        ("Blender", "blender"), ("Aseprite", "aseprite"), ("Steamworks", "steam"),
+        (".NET", "dotnet"), ("Blender", "blender"), ("Aseprite", "aseprite"),
+        ("Steamworks", "steam"),
     ]),
     ("AI / Machine Learning", "emerald_light", [
         ("PyTorch", "pytorch"), ("TensorFlow", "tensorflow"), ("Keras", "keras"),
