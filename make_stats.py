@@ -132,7 +132,9 @@ def render(stats, path=OUT):
     # ---- rank badge -----------------------------------------------------
     # A HUD-style gauge: a slowly rotating dashed outer ring, a dial of tick
     # marks that fill up to the score, and the progress arc itself.
-    rx, ry, rr = PAD + 372, 150, 38
+    # Centred in the gap between the overview list (ends ~x200) and the
+    # language block (starts x500), rather than pushed up against the latter.
+    rx, ry, rr = 350, 150, 38
     RANK_FS = 30
     circ = 2 * math.pi * rr
     arc = circ * min(max(score, 0.06), 1.0)
@@ -211,24 +213,22 @@ def render(stats, path=OUT):
         (470, _n(cur_n), "Current Streak", f"{_fmt_day(cur_a)} - {_fmt_day(cur_b)}", True),
         (770, _n(long_n), "Longest Streak", f"{_fmt_day(long_a)} - {_fmt_day(long_b)}", False),
     ]
-    for cx, big, label, sub, ringed in trio:
-        if ringed:
-            add(f'<circle cx="{cx}" cy="{sy + 36}" r="32" fill="none" '
-                f'stroke="{t["border"]}" stroke-width="3"/>'
-                f'<circle class="ring" cx="{cx}" cy="{sy + 36}" r="32" fill="none" '
-                f'stroke="{t["emerald_light"]}" stroke-width="3" stroke-linecap="round" '
-                f'filter="url(#ringGlow)"/>')
+    for cx, big, label, sub, accent in trio:
         add(f'<text x="{cx}" y="{sy + 36 + 30 * 0.355:.1f}" text-anchor="middle" '
             f'font-family="{MONO}" font-size="30" font-weight="700" '
-            f'fill="{t["emerald_light"] if ringed else t["text"]}">{_esc(big)}</text>')
-        # +86 clears the ring's bottom edge (sy+68); the old +76 clipped it.
-        add(f'<text x="{cx}" y="{sy + 88}" text-anchor="middle" font-family="{MONO}" '
-            f'font-size="12" fill="{t["emerald"] if ringed else t["dim"]}">'
+            f'fill="{t["emerald_light"] if accent else t["text"]}"'
+            f'{" filter=\"url(#ringGlow)\"" if accent else ""}>{_esc(big)}</text>')
+        if accent:
+            # An underline instead of a ring - same emphasis, no circle.
+            add(f'<rect class="uline" x="{cx - 26}" y="{sy + 58}" width="52" '
+                f'height="3" rx="1.5" fill="{t["emerald_light"]}"/>')
+        add(f'<text x="{cx}" y="{sy + 80}" text-anchor="middle" font-family="{MONO}" '
+            f'font-size="12" fill="{t["emerald"] if accent else t["dim"]}">'
             f'{_esc(label)}</text>')
-        add(f'<text x="{cx}" y="{sy + 105}" text-anchor="middle" font-family="{MONO}" '
+        add(f'<text x="{cx}" y="{sy + 97}" text-anchor="middle" font-family="{MONO}" '
             f'font-size="10.5" fill="{t["dim"]}">{_esc(sub)}</text>')
     for dx in (320, 620):
-        add(f'<line x1="{dx}" y1="{sy + 6}" x2="{dx}" y2="{sy + 100}" '
+        add(f'<line x1="{dx}" y1="{sy + 6}" x2="{dx}" y2="{sy + 92}" '
             f'stroke="{t["border"]}" stroke-width="1"/>')
 
     # ---- contribution graph ---------------------------------------------
@@ -325,6 +325,9 @@ def render(stats, path=OUT):
   .dial {{ transform-box:fill-box; transform-origin:center;
            animation: dialSpin 40s linear infinite; }}
   @keyframes dialSpin {{ to {{ transform:rotate(360deg); }} }}
+  .uline {{ transform-box:fill-box; transform-origin:center;
+            animation: wipe .7s ease-out .5s backwards; }}
+  @keyframes wipe {{ from {{ transform:scaleX(0); }} to {{ transform:scaleX(1); }} }}
 </style>
 <rect width="{W}" height="{H}" rx="14" fill="url(#statbg)"/>
 <rect x="0.5" y="0.5" width="{W - 1}" height="{H - 1}" rx="14" fill="none" stroke="{t["border"]}"/>
