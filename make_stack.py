@@ -22,7 +22,7 @@ import re
 from make_card import MONO, THEME
 
 ICON_CACHE = "assets/icons.json"
-OUT = "assets/stack.svg"
+OUT = "assets/tech-stack.svg"
 CDN = "https://cdn.jsdelivr.net/npm/simple-icons@13/icons/{slug}.svg"
 
 # (section title, accent colour key, [(label, simple-icons slug), ...])
