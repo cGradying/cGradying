@@ -29,8 +29,7 @@ CDN = "https://cdn.jsdelivr.net/npm/simple-icons@13/icons/{slug}.svg"
 STACK = [
     ("Game Development", "emerald_pale", [
         ("Unity", "unity"), ("Unreal", "unrealengine"), ("Godot", "godotengine"),
-        ("C#", "csharp"), ("Blender", "blender"), ("Aseprite", "aseprite"),
-        ("Steamworks", "steam"),
+        ("Blender", "blender"), ("Aseprite", "aseprite"), ("Steamworks", "steam"),
     ]),
     ("AI / Machine Learning", "emerald_light", [
         ("PyTorch", "pytorch"), ("TensorFlow", "tensorflow"), ("Keras", "keras"),
@@ -68,7 +67,10 @@ def load_icons(slugs):
         with open(ICON_CACHE, encoding="utf-8") as f:
             cache = json.load(f)
 
-    missing = [s for s in slugs if s not in cache]
+    # `not cache.get(s)` rather than `s not in cache`: a failed fetch caches an
+    # empty string, and treating that as present would make the failure stick
+    # forever instead of retrying on the next run.
+    missing = [s for s in slugs if not cache.get(s)]
     if missing:
         import requests  # only needed when the cache is cold
         for slug in missing:
