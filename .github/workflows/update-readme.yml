@@ -37,4 +37,7 @@ jobs:
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "chore: auto-update GitHub stats [skip ci]"
-          file_pattern: assets/card.svg
+          # Everything generated: both SVGs plus the stats.json they render
+          # from. Pinning this to card.svg alone silently threw away the
+          # stats panel and the saved numbers on every run.
+          file_pattern: assets/card.svg assets/github-stats.svg assets/stats.json
