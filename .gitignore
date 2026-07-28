@@ -1,2 +1,5 @@
 __pycache__/
 *.pyc
+
+# demo() scratch output
+assets/_demo_card.svg
