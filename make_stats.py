@@ -15,6 +15,7 @@ graph. Adds a busiest-day callout and a peak marker on the graph.
     python make_stats.py
 """
 import datetime
+import math
 import os
 
 from make_card import MONO, THEME, _esc, _starfield
@@ -129,20 +130,46 @@ def render(stats, path=OUT):
             f'<tspan fill="{t["text"]}">{_esc(v)}</tspan></text>')
 
     # ---- rank badge -----------------------------------------------------
-    # The ring is drawn as a dashed circle whose visible arc encodes the score.
-    rx, ry, rr = PAD + 372, 152, 46
-    circ = 2 * 3.14159265 * rr
-    arc = circ * min(max(score, 0.04), 1.0)
-    add(f'<circle cx="{rx}" cy="{ry}" r="{rr}" fill="none" '
-        f'stroke="{t["border"]}" stroke-width="6"/>')
-    add(f'<circle class="ring" cx="{rx}" cy="{ry}" r="{rr}" fill="none" '
-        f'stroke="{t["emerald_light"]}" stroke-width="6" stroke-linecap="round" '
-        f'stroke-dasharray="{arc:.1f} {circ - arc:.1f}" '
-        f'transform="rotate(-90 {rx} {ry})"/>')
-    add(f'<text x="{rx}" y="{ry + 9}" text-anchor="middle" font-family="{MONO}" '
-        f'font-size="30" font-weight="700" fill="{t["text"]}">{_esc(letter)}</text>')
-    add(f'<text x="{rx}" y="{ry + 30}" text-anchor="middle" font-family="{MONO}" '
-        f'font-size="9.5" fill="{t["dim"]}">RANK</text>')
+    # A HUD-style gauge: a slowly rotating dashed outer ring, a dial of tick
+    # marks that fill up to the score, and the progress arc itself.
+    rx, ry, rr = PAD + 372, 150, 38
+    RANK_FS = 30
+    circ = 2 * math.pi * rr
+    arc = circ * min(max(score, 0.06), 1.0)
+
+    add(f'<circle class="dial" cx="{rx}" cy="{ry}" r="52" fill="none" '
+        f'stroke="{t["border"]}" stroke-width="1" stroke-dasharray="2 7"/>')
+
+    ticks, TICKN = [], 24
+    for i in range(TICKN):
+        ang = math.radians(i * (360 / TICKN) - 90)
+        lit = (i / TICKN) < score
+        r2 = 47 if i % 3 == 0 else 45
+        ticks.append(
+            f'<line x1="{rx + 42 * math.cos(ang):.1f}" y1="{ry + 42 * math.sin(ang):.1f}" '
+            f'x2="{rx + r2 * math.cos(ang):.1f}" y2="{ry + r2 * math.sin(ang):.1f}" '
+            f'stroke="{t["emerald_light"] if lit else t["border"]}" '
+            f'stroke-width="{2 if lit else 1.4}" stroke-linecap="round"/>'
+        )
+    add(f'<g>{"".join(ticks)}</g>')
+
+    add(f'<circle cx="{rx}" cy="{ry}" r="{rr}" fill="{t["panel"]}" '
+        f'stroke="{t["border"]}" stroke-width="5"/>')
+    # The -90 lives on a wrapper: a CSS transform on the circle itself would
+    # override the presentation attribute and swing the arc's start to 3 o'clock.
+    add(f'<g transform="rotate(-90 {rx} {ry})">'
+        f'<circle class="ring" cx="{rx}" cy="{ry}" r="{rr}" fill="none" '
+        f'stroke="{t["emerald_light"]}" stroke-width="5" stroke-linecap="round" '
+        f'stroke-dasharray="{arc:.1f} {circ - arc:.1f}" filter="url(#ringGlow)"/></g>')
+    # 0.355 * font-size puts the cap-height midpoint on the circle's centre;
+    # the previous hand-picked offset sat the letter a couple of pixels high.
+    add(f'<text x="{rx}" y="{ry + RANK_FS * 0.355:.1f}" text-anchor="middle" '
+        f'font-family="{MONO}" font-size="{RANK_FS}" font-weight="700" '
+        f'fill="{t["text"]}">{_esc(letter)}</text>')
+    # Label moved outside the ring - inside it collided with the letter.
+    add(f'<text x="{rx}" y="{ry + 68}" text-anchor="middle" font-family="{MONO}" '
+        f'font-size="9.5" letter-spacing="1.5" fill="{t["dim"]}">RANK '
+        f'<tspan fill="{t["emerald"]}">{score * 100:.0f}%</tspan></text>')
 
     # ---- languages ------------------------------------------------------
     lx, lw = 500, W - PAD - 500
@@ -186,18 +213,22 @@ def render(stats, path=OUT):
     ]
     for cx, big, label, sub, ringed in trio:
         if ringed:
-            add(f'<circle cx="{cx}" cy="{sy + 36}" r="34" fill="none" '
-                f'stroke="{t["emerald_light"]}" stroke-width="3"/>')
-        add(f'<text x="{cx}" y="{sy + 46}" text-anchor="middle" font-family="{MONO}" '
-            f'font-size="30" font-weight="700" '
+            add(f'<circle cx="{cx}" cy="{sy + 36}" r="32" fill="none" '
+                f'stroke="{t["border"]}" stroke-width="3"/>'
+                f'<circle class="ring" cx="{cx}" cy="{sy + 36}" r="32" fill="none" '
+                f'stroke="{t["emerald_light"]}" stroke-width="3" stroke-linecap="round" '
+                f'filter="url(#ringGlow)"/>')
+        add(f'<text x="{cx}" y="{sy + 36 + 30 * 0.355:.1f}" text-anchor="middle" '
+            f'font-family="{MONO}" font-size="30" font-weight="700" '
             f'fill="{t["emerald_light"] if ringed else t["text"]}">{_esc(big)}</text>')
-        add(f'<text x="{cx}" y="{sy + 76}" text-anchor="middle" font-family="{MONO}" '
+        # +86 clears the ring's bottom edge (sy+68); the old +76 clipped it.
+        add(f'<text x="{cx}" y="{sy + 88}" text-anchor="middle" font-family="{MONO}" '
             f'font-size="12" fill="{t["emerald"] if ringed else t["dim"]}">'
             f'{_esc(label)}</text>')
-        add(f'<text x="{cx}" y="{sy + 94}" text-anchor="middle" font-family="{MONO}" '
+        add(f'<text x="{cx}" y="{sy + 105}" text-anchor="middle" font-family="{MONO}" '
             f'font-size="10.5" fill="{t["dim"]}">{_esc(sub)}</text>')
     for dx in (320, 620):
-        add(f'<line x1="{dx}" y1="{sy + 6}" x2="{dx}" y2="{sy + 90}" '
+        add(f'<line x1="{dx}" y1="{sy + 6}" x2="{dx}" y2="{sy + 100}" '
             f'stroke="{t["border"]}" stroke-width="1"/>')
 
     # ---- contribution graph ---------------------------------------------
@@ -266,6 +297,10 @@ def render(stats, path=OUT):
     <stop offset="0%" stop-color="{t["emerald"]}" stop-opacity="0.42"/>
     <stop offset="100%" stop-color="{t["emerald"]}" stop-opacity="0.02"/>
   </linearGradient>
+  <filter id="ringGlow" x="-60%" y="-60%" width="220%" height="220%">
+    <feGaussianBlur stdDeviation="2.6" result="b"/>
+    <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>
 </defs>
 <style>
   .fd {{ opacity:0; animation: fdIn .5s ease-out forwards; }}
@@ -281,9 +316,15 @@ def render(stats, path=OUT):
   .area {{ opacity:0; animation: fdIn .8s ease-out 1.6s forwards; }}
   .bar  {{ transform-origin:{lx}px 97px; animation: growBar 1s ease-out .4s backwards; }}
   @keyframes growBar {{ from {{ transform:scaleX(0); }} to {{ transform:scaleX(1); }} }}
-  .ring {{ transform-origin:{rx}px {ry}px; animation: spin 1.1s ease-out .3s backwards; }}
+  /* transform-box:fill-box keeps each ring spinning about its own centre, so
+     one rule serves both the rank gauge and the streak ring. */
+  .ring {{ transform-box:fill-box; transform-origin:center;
+           animation: spin 1.1s ease-out .3s backwards; }}
   @keyframes spin {{ from {{ transform:rotate(-140deg); opacity:0; }}
                      to   {{ transform:rotate(0deg); opacity:1; }} }}
+  .dial {{ transform-box:fill-box; transform-origin:center;
+           animation: dialSpin 40s linear infinite; }}
+  @keyframes dialSpin {{ to {{ transform:rotate(360deg); }} }}
 </style>
 <rect width="{W}" height="{H}" rx="14" fill="url(#statbg)"/>
 <rect x="0.5" y="0.5" width="{W - 1}" height="{H - 1}" rx="14" fill="none" stroke="{t["border"]}"/>
