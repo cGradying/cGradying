@@ -19,7 +19,7 @@ import json
 import os
 import re
 
-from make_card import MONO, THEME
+from make_card import MONO, THEME, _starfield
 
 ICON_CACHE = "assets/icons.json"
 OUT = "assets/tech-stack.svg"
@@ -52,6 +52,8 @@ STACK = [
 
 W = 940
 PAD = 22
+TITLE = "Tech Stack"
+HEADER_H = 48  # room for the title + rule before the first section
 CHIP_H = 28
 CHIP_GAP = 7
 ROW_GAP = 7
@@ -107,7 +109,7 @@ def render(path=OUT):
     icons = load_icons([s for _, _, items in STACK for _, s in items])
 
     chips, seps, titles, clips = [], [], [], []
-    y = PAD
+    y = PAD + HEADER_H  # leave space for the panel title drawn below
     idx = 0
 
     for title, accent_key, items in STACK:
@@ -170,6 +172,15 @@ def render(path=OUT):
         f'stroke-width="1" class="fade"/>' for sy in seps
     )
 
+    # Panel title, so the README needs no markdown heading above the image.
+    header_svg = (
+        f'<text x="{PAD}" y="{PAD + 19}" font-family="{MONO}" font-size="18" '
+        f'font-weight="700" fill="{t["emerald_light"]}" class="fade" '
+        f'letter-spacing="0.5">{_esc(TITLE)}</text>'
+        f'<line x1="{PAD}" y1="{PAD + 32}" x2="{W - PAD}" y2="{PAD + 32}" '
+        f'stroke="{t["border"]}" stroke-width="1" class="fade"/>'
+    )
+
     svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}" role="img" aria-label="Tech stack: game development, AI and machine learning, software engineering, web frontend and backend">
 <defs>
   <linearGradient id="sbg" x1="0" y1="0" x2="0.5" y2="1">
@@ -189,6 +200,9 @@ def render(path=OUT):
   .chip {{ opacity:0; animation: chipIn .5s cubic-bezier(.2,.8,.3,1) forwards; }}
   @keyframes chipIn {{ from {{ opacity:0; transform:translateY(8px); }}
                        to   {{ opacity:1; transform:translateY(0); }} }}
+  /* Matches the card's starfield - _starfield() emits class="star". */
+  .star {{ animation: twinkle 4s ease-in-out infinite; }}
+  @keyframes twinkle {{ 0%,100% {{ opacity:.15; }} 50% {{ opacity:.7; }} }}
   /* Sweep starts after the last chip has landed, then loops. */
   .shine {{ animation: sweep 4.5s ease-in-out {len(clips) * 28 + 500}ms infinite; }}
   @keyframes sweep {{ 0% {{ transform:translateX(-320px); }}
@@ -196,6 +210,8 @@ def render(path=OUT):
 </style>
 <rect width="{W}" height="{H}" rx="14" fill="url(#sbg)"/>
 <rect x="0.5" y="0.5" width="{W - 1}" height="{H - 1}" rx="14" fill="none" stroke="{t["border"]}"/>
+{_starfield(W, H, count=40, seed=23)}
+{header_svg}
 {divider_svg}
 {"".join(titles)}
 {"".join(chips)}
