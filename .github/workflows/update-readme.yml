@@ -37,4 +37,4 @@ jobs:
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "chore: auto-update GitHub stats [skip ci]"
-          file_pattern: README.md
+          file_pattern: assets/card.svg
