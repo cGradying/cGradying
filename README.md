@@ -7,11 +7,13 @@
   don't hand-edit that part, it'll just get overwritten on the next run.
 -->
 
+![header](https://capsule-render.com/api?type=waving&color=0:6EE7B7,100:3B82F6&height=140&section=header&text=cGradying&fontSize=42&fontColor=ffffff&animation=fadeIn)
+
 <table>
 <tr>
 
 <td width="45%" valign="top" align="center">
-  <img src="assets/ascii-art.png" width="320" alt="ascii art" />
+  <img src="ascii-art.png" width="320" alt="ascii art" />
 </td>
 
 <td width="55%" valign="top">
@@ -32,8 +34,8 @@ LookingToCollaborate: ........ AI/data engineers — analytics, full-stack, Pyth
 AskMeAbout: ................... Building AI-integrated products
 
 – Contact
-Email: ....................... [your.email@example.com]
-LinkedIn: .................... in/janvin-salvador-869a8a390
+Email: ....................... [cgradying@gmail.com]
+LinkedIn: .................... [in/janvinsalvador]
 
 <!--STATS-START-->
 – GitHub Stats
