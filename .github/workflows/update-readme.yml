@@ -31,7 +31,7 @@ jobs:
           GH_USERNAME: ${{ github.repository_owner }}
           # Set to "true" if cloning every repo for line counts is too slow
           SKIP_LOC: "false"
-        run: python scripts/update_stats.py
+        run: python update_stats.py
 
       - name: Commit changes
         uses: stefanzweifel/git-auto-commit-action@v5
