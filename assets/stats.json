@@ -1,10 +1,157 @@
 {
   "additions": 4778,
+  "calendar": [
+    {
+      "count": 0,
+      "date": "2026-06-30"
+    },
+    {
+      "count": 0,
+      "date": "2026-07-01"
+    },
+    {
+      "count": 0,
+      "date": "2026-07-02"
+    },
+    {
+      "count": 0,
+      "date": "2026-07-03"
+    },
+    {
+      "count": 0,
+      "date": "2026-07-04"
+    },
+    {
+      "count": 0,
+      "date": "2026-07-05"
+    },
+    {
+      "count": 0,
+      "date": "2026-07-06"
+    },
+    {
+      "count": 0,
+      "date": "2026-07-07"
+    },
+    {
+      "count": 0,
+      "date": "2026-07-08"
+    },
+    {
+      "count": 0,
+      "date": "2026-07-09"
+    },
+    {
+      "count": 0,
+      "date": "2026-07-10"
+    },
+    {
+      "count": 0,
+      "date": "2026-07-11"
+    },
+    {
+      "count": 0,
+      "date": "2026-07-12"
+    },
+    {
+      "count": 0,
+      "date": "2026-07-13"
+    },
+    {
+      "count": 0,
+      "date": "2026-07-14"
+    },
+    {
+      "count": 0,
+      "date": "2026-07-15"
+    },
+    {
+      "count": 0,
+      "date": "2026-07-16"
+    },
+    {
+      "count": 0,
+      "date": "2026-07-17"
+    },
+    {
+      "count": 0,
+      "date": "2026-07-18"
+    },
+    {
+      "count": 0,
+      "date": "2026-07-19"
+    },
+    {
+      "count": 0,
+      "date": "2026-07-20"
+    },
+    {
+      "count": 0,
+      "date": "2026-07-21"
+    },
+    {
+      "count": 0,
+      "date": "2026-07-22"
+    },
+    {
+      "count": 0,
+      "date": "2026-07-23"
+    },
+    {
+      "count": 0,
+      "date": "2026-07-24"
+    },
+    {
+      "count": 2,
+      "date": "2026-07-25"
+    },
+    {
+      "count": 12,
+      "date": "2026-07-26"
+    },
+    {
+      "count": 20,
+      "date": "2026-07-27"
+    },
+    {
+      "count": 30,
+      "date": "2026-07-28"
+    },
+    {
+      "count": 5,
+      "date": "2026-07-29"
+    }
+  ],
   "commits": 131,
   "contributed": 0,
   "deletions": 124,
   "followers": 0,
+  "issues": 0,
+  "languages": [
+    {
+      "color": "#e34c26",
+      "name": "HTML",
+      "pct": 86.51
+    },
+    {
+      "color": "#f1e05a",
+      "name": "JavaScript",
+      "pct": 8.99
+    },
+    {
+      "color": "#3572A5",
+      "name": "Python",
+      "pct": 4.0
+    },
+    {
+      "color": "#563d7c",
+      "name": "CSS",
+      "pct": 0.5
+    }
+  ],
   "loc_skipped": false,
+  "prs": 0,
   "repos": 5,
-  "stars": 0
+  "stars": 0,
+  "total_contributions": 123
 }

@@ -29,6 +29,7 @@ from datetime import datetime, timezone
 import requests
 
 import make_card
+import make_stats
 
 GITHUB_USERNAME = os.environ["GH_USERNAME"]
 GITHUB_TOKEN = os.environ["GITHUB_TOKEN"]
@@ -94,7 +95,12 @@ def get_repo_and_star_stats():
         repositories(first: 100, after: $after, ownerAffiliations: OWNER, isFork: false) {
           totalCount
           pageInfo { hasNextPage endCursor }
-          nodes { name url stargazerCount isPrivate }
+          nodes {
+            name url stargazerCount isPrivate
+            languages(first: 10, orderBy: {field: SIZE, direction: DESC}) {
+              edges { size node { name color } }
+            }
+          }
         }
       }
     }
@@ -110,6 +116,58 @@ def get_repo_and_star_stats():
         after = page["pageInfo"]["endCursor"]
     total_stars = sum(r["stargazerCount"] for r in repos)
     return repos, len(repos), total_stars, contributed_to
+
+
+def get_activity():
+    """PR/issue totals plus the last year's contribution calendar.
+
+    The calendar drives both the graph and the streak numbers, so they are
+    guaranteed to agree - the old setup fetched them from two separate
+    services that could disagree.
+    """
+    query = """
+    query($login: String!) {
+      user(login: $login) {
+        pullRequests { totalCount }
+        issues { totalCount }
+        contributionsCollection {
+          contributionCalendar {
+            totalContributions
+            weeks { contributionDays { date contributionCount } }
+          }
+        }
+      }
+    }
+    """
+    u = graphql(query, {"login": GITHUB_USERNAME})["user"]
+    cal = u["contributionsCollection"]["contributionCalendar"]
+    days = [
+        {"date": d["date"], "count": d["contributionCount"]}
+        for week in cal["weeks"] for d in week["contributionDays"]
+    ]
+    days.sort(key=lambda d: d["date"])
+    return {
+        "prs": u["pullRequests"]["totalCount"],
+        "issues": u["issues"]["totalCount"],
+        "total_contributions": cal["totalContributions"],
+        "calendar": days,
+    }
+
+
+def aggregate_languages(repos, top=6):
+    """Language split by bytes across public, non-fork repos."""
+    totals, colors = {}, {}
+    for repo in repos:
+        for edge in (repo.get("languages") or {}).get("edges", []):
+            name = edge["node"]["name"]
+            totals[name] = totals.get(name, 0) + edge["size"]
+            colors[name] = edge["node"].get("color")
+    grand = sum(totals.values())
+    if not grand:
+        return []
+    ranked = sorted(totals.items(), key=lambda kv: kv[1], reverse=True)[:top]
+    return [{"name": name, "pct": size * 100.0 / grand, "color": colors.get(name)}
+            for name, size in ranked]
 
 
 def get_followers():
@@ -165,6 +223,8 @@ def main():
         "additions": additions,
         "deletions": deletions,
         "loc_skipped": SKIP_LOC,
+        "languages": aggregate_languages(repos),
+        **get_activity(),
     }
 
     # Persist the numbers too, so the card can be re-rendered locally after a
@@ -173,10 +233,13 @@ def main():
     with open(make_card.STATS_PATH, "w", encoding="utf-8", newline="\n") as f:
         json.dump(stats, f, indent=2, sort_keys=True)
 
-    path = make_card.render(stats, CARD_PATH)
+    make_card.render(stats, CARD_PATH)
+    make_stats.render(stats, make_stats.OUT)
 
-    print(f"wrote {path} - Repos={total_repos} Contributed={contributed_to} "
-          f"Stars={total_stars} Commits={commits} Followers={followers} "
+    print(f"wrote {CARD_PATH} + {make_stats.OUT} - Repos={total_repos} "
+          f"Contributed={contributed_to} Stars={total_stars} Commits={commits} "
+          f"Followers={followers} PRs={stats['prs']} Issues={stats['issues']} "
+          f"Contributions={stats['total_contributions']} "
           f"Additions={additions} Deletions={deletions}")
 
 

@@ -17,21 +17,16 @@
 
 <img src="assets/tech-stack.svg" width="100%" alt="Tech stack - Game development: Unity, Unreal, Godot, .NET, Blender, Aseprite, Steamworks. AI/ML: PyTorch, TensorFlow, Keras, scikit-learn, Hugging Face, OpenCV, NumPy, Pandas, Jupyter. Software: Python, C++, Java, TypeScript, Git, Docker, Linux, AWS. Web: React, Next.js, Tailwind, Node.js, FastAPI, PostgreSQL, MongoDB, Vercel." />
 
-## 📊 GitHub Stats
-
 <!--
-  All four widgets are themed by hand instead of using a preset `theme=` so
-  they match the astra-moon/emerald palette of the card above.
-  Note: github-readme-stats.vercel.app is frequently rate-limited (HTTP 503),
-  so these point at the shion.dev mirror.
+  Generated (assets/github-stats.svg) - do not hand-edit. Replaces the four
+  third-party widgets this README used to embed (github-readme-stats,
+  top-langs, streak-stats, activity-graph); two of them had started returning
+  HTTP 402, and all four were points of failure outside our control.
+  The panel draws its own title. Rendered by make_stats.py from the same
+  assets/stats.json the card uses, so the numbers can never disagree.
 -->
 
-<img height="165" src="https://github-readme-stats.shion.dev/api?username=cGradying&show_icons=true&include_all_commits=true&count_private=true&hide_border=true&bg_color=0B1120&title_color=34D399&text_color=C9D1D9&icon_color=10B981" alt="GitHub stats" />
-<img height="165" src="https://github-readme-stats.shion.dev/api/top-langs/?username=cGradying&layout=compact&langs_count=8&hide_border=true&bg_color=0B1120&title_color=34D399&text_color=C9D1D9" alt="Top languages" />
-
-<img height="165" src="https://streak-stats.demolab.com?user=cGradying&hide_border=true&background=0B1120&stroke=1E293B&ring=10B981&fire=6EE7B7&currStreakNum=C9D1D9&sideNums=C9D1D9&currStreakLabel=34D399&sideLabels=7D8DA1&dates=7D8DA1" alt="Contribution streak" />
-
-![Activity graph](https://github-readme-activity-graph.vercel.app/graph?username=cGradying&hide_border=true&bg_color=0B1120&color=34D399&line=10B981&point=6EE7B7&area=true&area_color=10B981)
+<img src="assets/github-stats.svg" width="100%" alt="GitHub statistics: stars, commits, PRs, issues and contributions, rank badge, most-used languages, contribution streaks, and a 30-day contribution graph." />
 
 ---
 
