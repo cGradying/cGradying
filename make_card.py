@@ -44,7 +44,16 @@ GLITCH_KEYS = {"Host"}
 # ASCII only, so every glyph is guaranteed the same advance width as the real
 # text - a proportional fallback glyph would make the line jitter in width.
 MATRIX_GLYPHS = "01ABCDEF#%&$@*+=/<>[]{}|?!~^"
-FRAMES = 7  # scrambled frames shown before the text resolves
+FRAMES = 12  # scrambled frames shown before the text resolves; more = smoother
+
+# One loop of the whole sequence, as percentages of CYCLE_S. The meteor falls
+# in from off-canvas, lands at IMPACT, and the decode/wave/noise all trigger
+# from that moment so the matrix appears to spread from the hit point.
+CYCLE_S = 12
+M_START = 50.0   # meteor becomes visible
+M_HIT = 66.0     # impact - everything else keys off this
+M_END = 84.0     # text finished resolving
+IMPACT = (150.0, 92.0)
 
 
 def _decode_frames(text, frames=FRAMES, seed=1):
@@ -321,10 +330,87 @@ def render(stats, path="assets/card.svg"):
         delay += 1
         y += info_lh
 
-    # Frame-switching CSS. The decode burst occupies W0%..W1% of the loop; the
-    # rest of the cycle shows the resolved text. steps(1,end) makes each frame
-    # snap into place instead of cross-fading, which is what sells the glitch.
-    W0, W1, CYCLE = 84.0, 95.0, "7s"
+    # ---- meteor, impact wave, matrix rain, diffraction ------------------
+    mx, my = IMPACT
+    fx = []
+
+    # Meteor: a bright head with a trail of random glyphs strung out behind it
+    # along the direction of travel, so it reads as a matrix comet.
+    rng = random.Random(5)
+    fx.append('<g class="meteor">')
+    fx.append(
+        f'<text x="{mx}" y="{my}" font-family="{MONO}" font-size="15" '
+        f'font-weight="700" fill="#EAFFF6">@</text>'
+    )
+    for k in range(1, 12):
+        fx.append(
+            f'<text x="{mx - k * 9.5:.1f}" y="{my - k * 7.3:.1f}" font-family="{MONO}" '
+            f'font-size="12" fill="{t["emerald"]}" opacity="{max(0.06, 0.85 - k * 0.075):.2f}">'
+            f'{_esc(rng.choice(MATRIX_GLYPHS))}</text>'
+        )
+    fx.append("</g>")
+
+    # Shockwave. Scaled rather than animating the `r` attribute, since CSS
+    # geometry properties are patchier across browsers; non-scaling-stroke
+    # keeps the ring thin as it expands.
+    fx.append(
+        f'<circle class="wave" cx="{mx}" cy="{my}" r="4" fill="none" '
+        f'stroke="{t["emerald_pale"]}" stroke-width="2" vector-effect="non-scaling-stroke"/>'
+    )
+
+    # Matrix rain bursting out of the impact point.
+    for c in range(9):
+        cx = mx - 60 + c * 15
+        col = "".join(
+            f'<tspan x="{cx:.1f}" dy="{0 if j == 0 else 13}">'
+            f'{_esc(rng.choice(MATRIX_GLYPHS))}</tspan>' for j in range(7)
+        )
+        fx.append(
+            f'<text class="rain r{c}" x="{cx:.1f}" y="{my + 10:.1f}" font-family="{MONO}" '
+            f'font-size="12" fill="{t["emerald_pale"]}">{col}</text>'
+        )
+
+    # Diffraction: thin full-width slices that flash and shear sideways.
+    for i in range(4):
+        fx.append(
+            f'<rect class="nz n{i}" x="0" y="{rng.randint(70, H - 70)}" width="{W}" '
+            f'height="{rng.choice([2, 3, 4])}" fill="{t["emerald_pale"]}"/>'
+        )
+    fx_svg = "".join(fx)
+
+    fx_css = (
+        f".meteor{{opacity:0;animation:meteorFly {CYCLE_S}s linear infinite}}"
+        f"@keyframes meteorFly{{0%,{M_START:.1f}%{{opacity:0;"
+        f"transform:translate(-430px,-330px)}}"
+        f"{M_START + 1:.1f}%{{opacity:1}}"
+        f"{M_HIT:.1f}%{{opacity:1;transform:translate(0,0)}}"
+        f"{M_HIT + .5:.1f}%,100%{{opacity:0;transform:translate(0,0)}}}}"
+
+        f".wave{{opacity:0;transform-origin:{mx}px {my}px;"
+        f"animation:waveOut {CYCLE_S}s ease-out infinite}}"
+        f"@keyframes waveOut{{0%,{M_HIT:.1f}%{{transform:scale(1);opacity:0}}"
+        f"{M_HIT + 1:.1f}%{{opacity:.8}}"
+        f"{M_END:.1f}%,100%{{transform:scale(70);opacity:0}}}}"
+
+        f".rain{{opacity:0;animation:rainFall {CYCLE_S}s ease-in infinite}}"
+        f"@keyframes rainFall{{0%,{M_HIT:.1f}%{{opacity:0;transform:translateY(-12px)}}"
+        f"{M_HIT + 1:.1f}%{{opacity:.9}}"
+        f"{M_END:.1f}%,100%{{opacity:0;transform:translateY(75px)}}}}"
+        + "".join(f".r{c}{{animation-delay:{c * 0.09:.2f}s}}" for c in range(9))
+
+        + f".nz{{opacity:0;animation:nzFlash {CYCLE_S}s steps(1,end) infinite}}"
+        f"@keyframes nzFlash{{0%,{M_HIT:.1f}%{{opacity:0;transform:translateX(0)}}"
+        f"{M_HIT + 2:.1f}%{{opacity:.20;transform:translateX(-9px)}}"
+        f"{M_HIT + 4:.1f}%{{opacity:0;transform:translateX(0)}}"
+        f"{M_HIT + 7:.1f}%{{opacity:.14;transform:translateX(11px)}}"
+        f"{M_HIT + 9:.1f}%,100%{{opacity:0;transform:translateX(0)}}}}"
+        + "".join(f".n{i}{{animation-delay:{i * 0.28:.2f}s}}" for i in range(4))
+    )
+
+    # Frame-switching CSS. The decode burst runs from impact to M_END; the rest
+    # of the cycle shows the resolved text. steps(1,end) makes each frame snap
+    # into place instead of cross-fading, which is what sells the glitch.
+    W0, W1, CYCLE = M_HIT, M_END, f"{CYCLE_S}s"
     span = (W1 - W0) / FRAMES
     kf = [
         f".gv{{animation-duration:{CYCLE};animation-iteration-count:infinite;"
@@ -332,8 +418,10 @@ def render(stats, path="assets/card.svg"):
         f"@keyframes gvR{{0%,{W0:.2f}%{{opacity:1}}"
         f"{W0:.2f}%,{W1:.2f}%{{opacity:0}}{W1:.2f}%,100%{{opacity:1}}}}",
         ".gvR{animation-name:gvR}",
-        # Offset so the two rows decode at different moments.
-        ".gr-host{animation-delay:0s}.gr-loc{animation-delay:3.5s}",
+        # Small cascade rather than a big offset: both rows decode just after
+        # impact, the upper one first, so the matrix reads as spreading down
+        # from the hit point instead of firing at unrelated times.
+        ".gr-host{animation-delay:0s}.gr-loc{animation-delay:0.35s}",
     ]
     for i in range(FRAMES):
         a, b = W0 + i * span, W0 + (i + 1) * span
@@ -378,6 +466,7 @@ def render(stats, path="assets/card.svg"):
   @keyframes twinkle {{ 0%,100% {{ opacity:.15; }} 50% {{ opacity:.7; }} }}
 
   {glitch_css}
+  {fx_css}
   {" ".join(styles)}
 </style>
 <rect width="{W}" height="{H}" rx="14" fill="url(#bg)"/>
@@ -385,6 +474,7 @@ def render(stats, path="assets/card.svg"):
 {_starfield(W, H)}
 <ellipse cx="190" cy="{H // 2}" rx="185" ry="185" fill="url(#halo)" class="halo"/>
 {"".join(body)}
+{fx_svg}
 </svg>
 '''
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
@@ -438,6 +528,14 @@ def demo():
     svg = open(p, encoding="utf-8").read()
     assert "117" in svg and "4,768" in svg, "stats missing from SVG"
     assert svg.count("<svg") == 1 and svg.rstrip().endswith("</svg>")
+    import xml.etree.ElementTree as ET
+    ET.parse(p)  # malformed SVG renders as nothing at all
+    for cls in ("meteor", "wave", "rain", "nz", "gvR"):
+        assert f'class="{cls}' in svg or f' {cls} ' in svg, f"missing .{cls} effect"
+    # Every decode frame must exist, or the animation skips mid-resolve.
+    for i in range(FRAMES):
+        assert f"@keyframes gv{i}{{" in svg, f"missing keyframes gv{i}"
+    assert M_START < M_HIT < M_END, "impact timeline out of order"
     # Regenerating with identical stats must not change the file.
     before = svg
     render(stats, p)
