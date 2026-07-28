@@ -53,9 +53,10 @@ CYCLE_S = 12
 M_START = 50.0   # meteor becomes visible
 M_HIT = 66.0     # impact - everything else keys off this
 M_END = 84.0     # text finished resolving
-# On the text column, not the empty space beside the moon - the rain, wave and
-# diffraction are all clipped to the text block so nothing spills into the gaps.
-IMPACT = (430.0, 104.0)
+# On the text column, not the empty space beside the moon. The diffraction is
+# clipped to the text block; the shockwave deliberately is not, so it can carry
+# on expanding past the text and off the card.
+IMPACT = (520.0, 178.0)
 
 
 def _decode_frames(text, frames=FRAMES, seed=1):
@@ -353,33 +354,21 @@ def render(stats, path="assets/card.svg"):
         )
     fx.append("</g>")
 
-    # Everything below is clipped to the text block, so the wave and the rain
-    # only ever play over the text - never in the empty space around it.
     tz_x, tz_y = info_x - 14, 40.0
     tz_w, tz_h = (W - 44) - info_x + 28, (y + 8) - 40.0
-    fx.append('<g clip-path="url(#textZone)">')
 
-    # Shockwave. Scaled rather than animating the `r` attribute, since CSS
-    # geometry properties are patchier across browsers; non-scaling-stroke
-    # keeps the ring thin as it expands.
+    # Shockwave, deliberately outside the clip group so it keeps expanding past
+    # the text and off the card. Scaled rather than animating the `r` attribute,
+    # since CSS geometry properties are patchier across browsers;
+    # non-scaling-stroke keeps the ring thin as it grows.
     fx.append(
         f'<circle class="wave" cx="{mx}" cy="{my}" r="4" fill="none" '
         f'stroke="{t["emerald_pale"]}" stroke-width="2" vector-effect="non-scaling-stroke"/>'
     )
 
-    # Matrix rain bursting out of the impact point, kept inside the text block.
-    for c in range(11):
-        cx = min(max(mx - 75 + c * 15, tz_x + 6), tz_x + tz_w - 12)
-        col = "".join(
-            f'<tspan x="{cx:.1f}" dy="{0 if j == 0 else 13}">'
-            f'{_esc(rng.choice(MATRIX_GLYPHS))}</tspan>' for j in range(7)
-        )
-        fx.append(
-            f'<text class="rain r{c}" x="{cx:.1f}" y="{my + 10:.1f}" font-family="{MONO}" '
-            f'font-size="12" fill="{t["emerald_pale"]}">{col}</text>'
-        )
-
     # Diffraction: thin slices across the text column that flash and shear.
+    # Clipped, so the noise stays on the text.
+    fx.append('<g clip-path="url(#textZone)">')
     for i in range(4):
         fx.append(
             f'<rect class="nz n{i}" x="{tz_x:.0f}" '
@@ -404,13 +393,7 @@ def render(stats, path="assets/card.svg"):
         f"{M_HIT + 1:.1f}%{{opacity:.8}}"
         f"{M_END:.1f}%,100%{{transform:scale(70);opacity:0}}}}"
 
-        f".rain{{opacity:0;animation:rainFall {CYCLE_S}s ease-in infinite}}"
-        f"@keyframes rainFall{{0%,{M_HIT:.1f}%{{opacity:0;transform:translateY(-12px)}}"
-        f"{M_HIT + 1:.1f}%{{opacity:.9}}"
-        f"{M_END:.1f}%,100%{{opacity:0;transform:translateY(75px)}}}}"
-        + "".join(f".r{c}{{animation-delay:{c * 0.09:.2f}s}}" for c in range(9))
-
-        + f".nz{{opacity:0;animation:nzFlash {CYCLE_S}s steps(1,end) infinite}}"
+        f".nz{{opacity:0;animation:nzFlash {CYCLE_S}s steps(1,end) infinite}}"
         f"@keyframes nzFlash{{0%,{M_HIT:.1f}%{{opacity:0;transform:translateX(0)}}"
         f"{M_HIT + 2:.1f}%{{opacity:.20;transform:translateX(-9px)}}"
         f"{M_HIT + 4:.1f}%{{opacity:0;transform:translateX(0)}}"
@@ -558,7 +541,8 @@ def demo():
     assert svg.count("<svg") == 1 and svg.rstrip().endswith("</svg>")
     import xml.etree.ElementTree as ET
     ET.parse(p)  # malformed SVG renders as nothing at all
-    for cls in ("meteor", "wave", "rain", "nz", "gvR"):
+    assert "rainFall" not in svg, "rain effect should be gone"
+    for cls in ("meteor", "wave", "nz", "gvR"):
         assert f'class="{cls}' in svg or f' {cls} ' in svg, f"missing .{cls} effect"
     # Every decode frame must exist, or the animation skips mid-resolve.
     for i in range(FRAMES):
