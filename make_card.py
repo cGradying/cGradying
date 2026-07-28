@@ -56,28 +56,51 @@ M_END = 84.0     # text finished resolving
 # On the text column, not the empty space beside the moon. The diffraction is
 # clipped to the text block; the shockwave deliberately is not, so it can carry
 # on expanding past the text and off the card.
-IMPACT = (520.0, 178.0)
+IMPACT = (615.0, 178.0)
+
+# Rows whose value is a list cycle to the next entry on every impact. All such
+# rows must offer the same number of alternatives so they share one CSS clock.
+MULTI_N = 3
+MULTI_FRAMES = 10
 
 
-def _decode_frames(text, frames=FRAMES, seed=1):
+def _decode_frames(text, frames=FRAMES, seed=1, mode="ltr"):
     """Progressive 'matrix decode' states for `text`.
 
-    Frame i has the first i/frames characters already resolved and the rest
-    replaced with random glyphs, so playing the frames in order looks like the
-    line resolving left to right. Spaces are never scrambled, which keeps the
-    word shape readable while it decodes.
+    Each frame resolves a few more characters and scrambles the rest, so
+    playing them in order looks like the line decoding. `mode` picks the order
+    characters lock in:
 
-    Returns [(resolved_prefix, scrambled_suffix), ...]. Seeded so the render
-    stays byte-identical across runs.
+      ltr    - left to right, like a cursor sweeping the line
+      random - characters pop in at random, the classic decrypt look
+      center - resolves outward from the middle
+
+    Spaces are never scrambled, which keeps the word shape readable mid-decode.
+    Returns one list of (segment, is_resolved) runs per frame - runs rather
+    than per-character so the caller emits a handful of tspans, not one each.
+    Seeded, so the render stays byte-identical across runs.
     """
     rng = random.Random(seed)
+    n = len(text)
+    order = list(range(n))
+    if mode == "random":
+        rng.shuffle(order)
+    elif mode == "center":
+        order.sort(key=lambda i: abs(i - (n - 1) / 2))
+    rank = {pos: r for r, pos in enumerate(order)}
+
     out = []
     for f in range(frames):
-        keep = int(len(text) * f / frames)
-        tail = "".join(
-            ch if ch == " " else rng.choice(MATRIX_GLYPHS) for ch in text[keep:]
-        )
-        out.append((text[:keep], tail))
+        cutoff = n * f / frames
+        runs = []
+        for i, ch in enumerate(text):
+            done = rank[i] < cutoff
+            glyph = ch if (done or ch == " ") else rng.choice(MATRIX_GLYPHS)
+            if runs and runs[-1][1] == done:
+                runs[-1][0] += glyph
+            else:
+                runs.append([glyph, done])
+        out.append([(s, d) for s, d in runs])
     return out
 
 INFO = [
@@ -89,10 +112,27 @@ INFO = [
     ("Languages.Programming", "Python, C++, C#, Java, TypeScript"),
     ("Languages.Real", "English, Filipino"),
     None,
-    ("Currently.WorkingOn", "Projects to improve my daily life"),
-    ("Currently.Learning", "Cloud infrastructure & architecture"),
-    ("LookingToCollaborate", "AI/ML engineers, game devs, full-stack"),
-    ("AskMeAbout", "Building AI-integrated products"),
+    # List values rotate on every meteor impact - exactly MULTI_N entries each.
+    ("Currently.WorkingOn", [
+        "Projects to improve my daily life",
+        "Discord bots for my class section",
+        "An AI-powered study app",
+    ]),
+    ("Currently.Learning", [
+        "Cloud infrastructure & architecture",
+        "Machine learning & model training",
+        "Game engines & real-time rendering",
+    ]),
+    ("LookingToCollaborate", [
+        "AI/ML engineers, game devs, full-stack",
+        "Anyone building with LLMs",
+        "Student devs shipping side projects",
+    ]),
+    ("AskMeAbout", [
+        "Building AI-integrated products",
+        "Discord bots that actually get used",
+        "Turning class problems into tools",
+    ]),
     None,
     ("Email", "cgradying@gmail.com"),
     ("LinkedIn", "in/janvinsalvador"),
@@ -226,6 +266,34 @@ def render(stats, path="assets/card.svg"):
             f'{value_html}</text>'
         )
 
+    def runs_html(runs, scram):
+        """Render one decode frame: resolved runs in white, scrambled in `scram`."""
+        return "".join(
+            f'<tspan fill="{t["text"] if done else scram}">{_esc(s)}</tspan>'
+            for s, done in runs
+        )
+
+    def rotating_stack(key, values, yy, fade_idx, mode, scram, seed, row_i):
+        """A row that decodes into a different value on each impact.
+
+        One element per (value, frame) plus one resolved element per value.
+        The CSS clock is MULTI_N cycles long, so value k owns cycle k: its
+        frames play during that cycle's decode window and its resolved text
+        stays up until the next impact.
+        """
+        parts = [f'<g class="fade f{fade_idx}">']
+        for k, val in enumerate(values):
+            for i, runs in enumerate(
+                _decode_frames(val, MULTI_FRAMES, seed=seed + k, mode=mode)
+            ):
+                parts.append(row_text(
+                    f' class="mv mv{k}_{i} rw{row_i}"', key, runs_html(runs, scram), yy))
+            parts.append(row_text(
+                f' class="mv mv{k}R rw{row_i}"', key,
+                f'<tspan fill="{t["text"]}">{_esc(val)}</tspan>', yy))
+        parts.append("</g>")
+        return "".join(parts)
+
     def glitch_stack(key, make_value, group, yy, fade_idx):
         """Stack FRAMES scrambled copies plus the resolved one.
 
@@ -240,24 +308,40 @@ def render(stats, path="assets/card.svg"):
         parts.append("</g>")
         return "".join(parts)
 
+    # Each rotating row gets its own decode order and scramble colour, and a
+    # small delay so they cascade down the column instead of firing together.
+    ROTATE_STYLE = [
+        ("ltr", t["emerald_pale"]),
+        ("random", t["emerald"]),
+        ("center", t["emerald_pale"]),
+        ("random", t["red"]),
+    ]
+
     y = info_top
+    rot_i = 0
     for row in INFO:
         if row is None:
             y += info_lh * 0.5
             continue
         key, val = row
-        if key in GLITCH_KEYS:
+        if isinstance(val, list):
+            assert len(val) == MULTI_N, (
+                f"{key!r} has {len(val)} values, expected {MULTI_N} - rotating "
+                f"rows share one CSS clock, so the counts must match")
+            mode, scram = ROTATE_STYLE[rot_i % len(ROTATE_STYLE)]
+            body.append(rotating_stack(key, val, y, delay, mode, scram,
+                                       seed=101 + rot_i * 17, row_i=rot_i))
+            rot_i += 1
+        elif key in GLITCH_KEYS:
             frames = _decode_frames(val, seed=len(val))
 
             def host_value(i, _val=val, _frames=frames):
                 if i is None:
                     return f'<tspan fill="{t["text"]}">{_esc(_val)}</tspan>'
-                keep, tail = _frames[i]
                 # Alternate the scramble colour so it flickers between matrix
                 # green and red on the way to resolving white.
-                col = t["emerald_pale"] if i % 2 == 0 else t["red"]
-                return (f'<tspan fill="{t["text"]}">{_esc(keep)}</tspan>'
-                        f'<tspan fill="{col}">{_esc(tail)}</tspan>')
+                return runs_html(_frames[i],
+                                 t["emerald_pale"] if i % 2 == 0 else t["red"])
 
             body.append(glitch_stack(key, host_value, "gr-host", y, delay))
         else:
@@ -292,8 +376,8 @@ def render(stats, path="assets/card.svg"):
 
     add_txt = f'{n(stats["additions"])}++'
     del_txt = f'{n(stats["deletions"])}--'
-    add_frames = _decode_frames(add_txt, seed=11)
-    del_frames = _decode_frames(del_txt, seed=29)
+    add_frames = _decode_frames(add_txt, seed=11, mode="random")
+    del_frames = _decode_frames(del_txt, seed=29, mode="random")
     total_txt = n(stats["additions"] + stats["deletions"])
 
     def loc_value(i):
@@ -302,12 +386,8 @@ def render(stats, path="assets/card.svg"):
             add_html = f'<tspan fill="{t["text"]}">{_esc(add_txt)}</tspan>'
             del_html = f'<tspan fill="{t["text"]}">{_esc(del_txt)}</tspan>'
         else:
-            ak, at = add_frames[i]
-            dk, dt = del_frames[i]
-            add_html = (f'<tspan fill="{t["text"]}">{_esc(ak)}</tspan>'
-                        f'<tspan fill="{t["emerald_pale"]}">{_esc(at)}</tspan>')
-            del_html = (f'<tspan fill="{t["text"]}">{_esc(dk)}</tspan>'
-                        f'<tspan fill="{t["red"]}">{_esc(dt)}</tspan>')
+            add_html = runs_html(add_frames[i], t["emerald_pale"])
+            del_html = runs_html(del_frames[i], t["red"])
         return (f'{plain(total_txt + " (")}{add_html}{plain(", ")}'
                 f'{del_html}{plain(")")}')
 
@@ -437,7 +517,42 @@ def render(stats, path="assets/card.svg"):
             f"{a:.2f}%,{b:.2f}%{{opacity:1}}{b:.2f}%,100%{{opacity:0}}}}"
             f".gv{i}{{animation-name:gv{i}}}"
         )
-    glitch_css = "".join(kf)
+    # Rotating rows run on a super-loop MULTI_N cycles long, so it stays in
+    # step with the 1-cycle meteor. Value k is shown from the end of cycle k's
+    # decode right through to the next impact - the last one wraps past 100%.
+    seg = 100.0 / MULTI_N
+    mspan = seg * (M_END - M_HIT) / 100.0 / MULTI_FRAMES
+    mv = [
+        f".mv{{opacity:0;animation-duration:{MULTI_N * CYCLE_S}s;"
+        f"animation-iteration-count:infinite;animation-timing-function:steps(1,end)}}"
+    ]
+    for k in range(MULTI_N):
+        base = k * seg
+        for i in range(MULTI_FRAMES):
+            a = base + seg * M_HIT / 100.0 + i * mspan
+            b = a + mspan
+            mv.append(
+                f"@keyframes mv{k}_{i}{{0%,{a:.3f}%{{opacity:0}}"
+                f"{a:.3f}%,{b:.3f}%{{opacity:1}}{b:.3f}%,100%{{opacity:0}}}}"
+                f".mv{k}_{i}{{animation-name:mv{k}_{i}}}"
+            )
+        ra = base + seg * M_END / 100.0
+        rb = base + seg + seg * M_HIT / 100.0
+        if rb <= 100.0:
+            mv.append(
+                f"@keyframes mv{k}R{{0%,{ra:.3f}%{{opacity:0}}"
+                f"{ra:.3f}%,{rb:.3f}%{{opacity:1}}{rb:.3f}%,100%{{opacity:0}}}}"
+            )
+        else:  # wraps around the end of the super-loop
+            mv.append(
+                f"@keyframes mv{k}R{{0%,{rb - 100.0:.3f}%{{opacity:1}}"
+                f"{rb - 100.0:.3f}%,{ra:.3f}%{{opacity:0}}"
+                f"{ra:.3f}%,100%{{opacity:1}}}}"
+            )
+        mv.append(f".mv{k}R{{animation-name:mv{k}R}}")
+    mv += [f".rw{i}{{animation-delay:{i * 0.14:.2f}s}}" for i in range(8)]
+
+    glitch_css = "".join(kf) + "".join(mv)
 
     svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}" role="img" aria-label="cGradying GitHub profile card">
 <defs>
@@ -548,6 +663,17 @@ def demo():
     for i in range(FRAMES):
         assert f"@keyframes gv{i}{{" in svg, f"missing keyframes gv{i}"
     assert M_START < M_HIT < M_END, "impact timeline out of order"
+    # Every rotating value needs a full set of frames plus its resolved state,
+    # or a row would blank out for part of the super-loop.
+    for k in range(MULTI_N):
+        assert f"@keyframes mv{k}R{{" in svg, f"missing resolved keyframes mv{k}R"
+        for i in range(MULTI_FRAMES):
+            assert f"@keyframes mv{k}_{i}{{" in svg, f"missing keyframes mv{k}_{i}"
+    for mode in ("ltr", "random", "center"):
+        f0 = _decode_frames("abcdefgh", 4, seed=1, mode=mode)
+        assert "".join(s for s, _ in f0[0]) != "abcdefgh", f"{mode}: frame 0 not scrambled"
+        assert all(len("".join(s for s, _ in fr)) == 8 for fr in f0), \
+            f"{mode}: frame changed the line length"
     # Regenerating with identical stats must not change the file.
     before = svg
     render(stats, p)
