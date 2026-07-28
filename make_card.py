@@ -11,11 +11,34 @@ JavaScript - so nothing here relies on scripting.
 
 Edit INFO below to change the text block. Edit THEME to restyle.
 """
+import datetime
 import html
 import json
 import math
 import os
 import random
+
+BIRTHDATE = datetime.date(2006, 12, 13)
+
+
+def _uptime(today=None):
+    """Time since BIRTHDATE as calendar years/months/days.
+
+    Borrows from the previous month when the day underflows, so the result is
+    real calendar arithmetic rather than a 365-day approximation.
+    """
+    d = today or datetime.date.today()
+    years = d.year - BIRTHDATE.year
+    months = d.month - BIRTHDATE.month
+    days = d.day - BIRTHDATE.day
+    if days < 0:
+        months -= 1
+        prev_month_end = datetime.date(d.year, d.month, 1) - datetime.timedelta(days=1)
+        days += prev_month_end.day
+    if months < 0:
+        years -= 1
+        months += 12
+    return f"{years} years, {months} months, {days} days"
 
 # Last-fetched stats, written by update_stats.py. Kept beside the card so the
 # design can be re-rendered locally without a GitHub token - otherwise the only
@@ -63,6 +86,10 @@ IMPACT = (615.0, 178.0)
 MULTI_N = 3
 MULTI_FRAMES = 10
 
+# Label column width for the stats block, wide enough that "Lines of Code"
+# still gets its minimum two leader dots and lands on the same value column.
+STAT_KEY_W = 15
+
 
 def _decode_frames(text, frames=FRAMES, seed=1, mode="ltr"):
     """Progressive 'matrix decode' states for `text`.
@@ -106,7 +133,10 @@ def _decode_frames(text, frames=FRAMES, seed=1, mode="ltr"):
 INFO = [
     ("OS", ["Windows", "macOS (planned)", "Windows / macOS"]),
     ("Host", "Polytechnic University of the Philippines"),
+    # Callable values are evaluated at render time.
+    ("Uptime", _uptime),
     ("Role", ["Student", "Computer Science Student", "BS Computer Science"]),
+    ("Agents", ["Claude Code", "Ollama (local models)", "Claude Code + Ollama"]),
     ("IDE", ["VS Code", "JetBrains", "PyCharm"]),
     None,
     ("Languages.Programming", "Python, C++, C#, Java, TypeScript"),
@@ -256,8 +286,8 @@ def render(stats, path="assets/card.svg"):
     # their own colours while still lining up in the monospace grid.
     label_cols = 24
 
-    def row_text(cls, key, value_html, yy):
-        dots = "." * max(2, label_cols - len(key))
+    def row_text(cls, key, value_html, yy, klen=None):
+        dots = "." * max(2, (label_cols if klen is None else klen) - len(key))
         return (
             f'<text x="{info_x}" y="{yy:.1f}" font-family="{MONO}" '
             f'font-size="{info_fs}"{cls} xml:space="preserve">'
@@ -294,7 +324,7 @@ def render(stats, path="assets/card.svg"):
         parts.append("</g>")
         return "".join(parts)
 
-    def glitch_stack(key, make_value, group, yy, fade_idx):
+    def glitch_stack(key, make_value, group, yy, fade_idx, klen=None):
         """Stack FRAMES scrambled copies plus the resolved one.
 
         Every copy is a full row laid out by the same font, so they line up
@@ -303,8 +333,8 @@ def render(stats, path="assets/card.svg"):
         """
         parts = [f'<g class="fade f{fade_idx}">']
         for i in range(FRAMES):
-            parts.append(row_text(f' class="gv gv{i} {group}"', key, make_value(i), yy))
-        parts.append(row_text(f' class="gv gvR {group}"', key, make_value(None), yy))
+            parts.append(row_text(f' class="gv gv{i} {group}"', key, make_value(i), yy, klen))
+        parts.append(row_text(f' class="gv gvR {group}"', key, make_value(None), yy, klen))
         parts.append("</g>")
         return "".join(parts)
 
@@ -324,6 +354,8 @@ def render(stats, path="assets/card.svg"):
             y += info_lh * 0.5
             continue
         key, val = row
+        if callable(val):
+            val = val()
         if isinstance(val, list):
             assert len(val) == MULTI_N, (
                 f"{key!r} has {len(val)} values, expected {MULTI_N} - rotating "
@@ -391,23 +423,39 @@ def render(stats, path="assets/card.svg"):
         return (f'{plain(total_txt + " (")}{add_html}{plain(", ")}'
                 f'{del_html}{plain(")")}')
 
+    # Compact: two stats per line. Widths are in monospace columns, so the
+    # second pair lines up regardless of how long the first value is.
+    # k1w matches STAT_KEY_W so the paired rows and the Lines of Code row all
+    # start their values in the same column.
+    def pair_html(k1, v1, k2, v2, k1w=STAT_KEY_W, seg_w=34, k2w=11):
+        d1 = "." * max(2, k1w - len(k1))
+        d2 = "." * max(2, k2w - len(k2))
+        gap = " " * max(2, seg_w - len(f"{k1} {d1} {v1}"))
+        return (
+            f'<tspan fill="{t["emerald"]}">{_esc(k1)}</tspan>'
+            f'<tspan fill="{t["border"]}"> {d1} </tspan>'
+            f'<tspan fill="{t["text"]}">{_esc(v1)}</tspan>'
+            f'<tspan>{gap}</tspan>'
+            f'<tspan fill="{t["emerald"]}">{_esc(k2)}</tspan>'
+            f'<tspan fill="{t["border"]}"> {d2} </tspan>'
+            f'<tspan fill="{t["text"]}">{_esc(v2)}</tspan>'
+        )
+
     stat_rows = [
-        ("Repos", plain(f'{n(stats["repos"])}  (contributed to {n(stats["contributed"])})')),
-        ("Stars", plain(n(stats["stars"]))),
-        ("Commits", plain(n(stats["commits"]))),
-        ("Followers", plain(n(stats["followers"]))),
-        ("Lines of Code", plain("skipped") if stats.get("loc_skipped") else None),
+        pair_html("Repos", f'{n(stats["repos"])} ({n(stats["contributed"])} contrib)',
+                  "Stars", n(stats["stars"])),
+        pair_html("Commits", n(stats["commits"]),
+                  "Followers", n(stats["followers"])),
+        None,  # the animated Lines of Code row
     ]
-    for key, val_markup in stat_rows:
-        if val_markup is None:  # the animated LOC row
-            body.append(glitch_stack(key, loc_value, "gr-loc", y, delay))
+    for val_markup in stat_rows:
+        if val_markup is None:
+            body.append(glitch_stack("Lines of Code", loc_value, "gr-loc", y, delay,
+                                     klen=STAT_KEY_W))
         else:
-            dots = "." * max(2, label_cols - len(key))
             body.append(
                 f'<text x="{info_x}" y="{y:.1f}" font-family="{MONO}" '
                 f'font-size="{info_fs}" class="fade f{delay}" xml:space="preserve">'
-                f'<tspan fill="{t["emerald"]}">{_esc(key)}</tspan>'
-                f'<tspan fill="{t["border"]}"> {dots} </tspan>'
                 f'{val_markup}</text>'
             )
         styles.append(f".f{delay}{{animation-delay:{delay * 55}ms}}")
@@ -669,6 +717,13 @@ def demo():
         assert f"@keyframes mv{k}R{{" in svg, f"missing resolved keyframes mv{k}R"
         for i in range(MULTI_FRAMES):
             assert f"@keyframes mv{k}_{i}{{" in svg, f"missing keyframes mv{k}_{i}"
+    D = datetime.date
+    assert _uptime(D(2026, 7, 29)) == "19 years, 7 months, 16 days"
+    assert _uptime(D(2026, 12, 13)) == "20 years, 0 months, 0 days"  # exact birthday
+    assert _uptime(D(2026, 12, 12)) == "19 years, 11 months, 29 days"  # day before
+    assert _uptime(D(2007, 1, 12)) == "0 years, 0 months, 30 days"  # borrows a month
+    assert _uptime(D(2008, 3, 1)) == "1 years, 2 months, 17 days"  # leap-year February
+
     for mode in ("ltr", "random", "center"):
         f0 = _decode_frames("abcdefgh", 4, seed=1, mode=mode)
         assert "".join(s for s, _ in f0[0]) != "abcdefgh", f"{mode}: frame 0 not scrambled"
