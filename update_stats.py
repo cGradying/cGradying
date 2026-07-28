@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Fetches live GitHub stats for GH_USERNAME and rewrites the
-<!--STATS-START--> ... <!--STATS-END--> block in README.md.
+Fetches live GitHub stats for GH_USERNAME and re-renders assets/card.svg
+(the animated panel at the top of README.md) via make_card.render().
 
 Env vars required:
   GITHUB_TOKEN  - auto-provided by GitHub Actions
@@ -21,17 +21,18 @@ repo). If your account has many/large repos this will slow the workflow
 down significantly - see the SKIP_LOC env var below to disable it.
 """
 import os
-import re
 import subprocess
 import tempfile
 from datetime import datetime, timezone
 
 import requests
 
+import make_card
+
 GITHUB_USERNAME = os.environ["GH_USERNAME"]
 GITHUB_TOKEN = os.environ["GITHUB_TOKEN"]
 SKIP_LOC = os.environ.get("SKIP_LOC", "false").lower() == "true"
-README_PATH = "README.md"
+CARD_PATH = "assets/card.svg"
 
 HEADERS = {"Authorization": f"bearer {GITHUB_TOKEN}"}
 GRAPHQL_URL = "https://api.github.com/graphql"
@@ -144,10 +145,6 @@ def get_lines_of_code(repos):
     return additions, deletions
 
 
-def fmt(n):
-    return f"{n:,}"
-
-
 def main():
     repos, total_repos, total_stars, contributed_to = get_repo_and_star_stats()
     commits = get_commit_total()
@@ -155,31 +152,25 @@ def main():
 
     if SKIP_LOC:
         additions = deletions = 0
-        loc_line = "Lines of Code: ... skipped (SKIP_LOC=true)"
     else:
         additions, deletions = get_lines_of_code(repos)
-        loc_line = f"Lines of Code: ... {fmt(additions + deletions)} ( {fmt(additions)}++, {fmt(deletions)}-- )"
 
-    block = (
-        "<!--STATS-START-->\n"
-        "– GitHub Stats\n"
-        f"Repos: ........ {fmt(total_repos)} {{Contributed: {contributed_to}}} | "
-        f"Stars: ........ {fmt(total_stars)}\n"
-        f"Commits: ...... {fmt(commits)} | Followers: ..... {fmt(followers)}\n"
-        f"{loc_line}\n"
-        "<!--STATS-END-->"
-    )
+    stats = {
+        "repos": total_repos,
+        "contributed": contributed_to,
+        "stars": total_stars,
+        "commits": commits,
+        "followers": followers,
+        "additions": additions,
+        "deletions": deletions,
+        "loc_skipped": SKIP_LOC,
+    }
 
-    with open(README_PATH, "r", encoding="utf-8") as f:
-        content = f.read()
+    path = make_card.render(stats, CARD_PATH)
 
-    updated = re.sub(r"<!--STATS-START-->.*?<!--STATS-END-->", block, content, flags=re.DOTALL)
-
-    with open(README_PATH, "w", encoding="utf-8") as f:
-        f.write(updated)
-
-    print(f"Repos={total_repos} Contributed={contributed_to} Stars={total_stars} "
-          f"Commits={commits} Followers={followers} Additions={additions} Deletions={deletions}")
+    print(f"wrote {path} - Repos={total_repos} Contributed={contributed_to} "
+          f"Stars={total_stars} Commits={commits} Followers={followers} "
+          f"Additions={additions} Deletions={deletions}")
 
 
 if __name__ == "__main__":
