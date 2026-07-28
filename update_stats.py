@@ -20,6 +20,7 @@ Lines-of-code is the most expensive step (it clones every public, non-fork
 repo). If your account has many/large repos this will slow the workflow
 down significantly - see the SKIP_LOC env var below to disable it.
 """
+import json
 import os
 import subprocess
 import tempfile
@@ -165,6 +166,12 @@ def main():
         "deletions": deletions,
         "loc_skipped": SKIP_LOC,
     }
+
+    # Persist the numbers too, so the card can be re-rendered locally after a
+    # design change without needing a token or scraping them back out of the SVG.
+    os.makedirs(os.path.dirname(make_card.STATS_PATH) or ".", exist_ok=True)
+    with open(make_card.STATS_PATH, "w", encoding="utf-8", newline="\n") as f:
+        json.dump(stats, f, indent=2, sort_keys=True)
 
     path = make_card.render(stats, CARD_PATH)
 
