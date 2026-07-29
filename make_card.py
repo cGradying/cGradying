@@ -46,15 +46,15 @@ def _uptime(today=None):
 # scraping them back out or clobbering them with stale ones.
 STATS_PATH = "assets/stats.json"
 
-# --- theme: "astra cosmic" deep space + orange -------------------------
+# --- theme: "astra moon" deep space + emerald green -------------------------
 THEME = {
     "bg_top": "#0B1120",
     "bg_bottom": "#0F172A",
     "panel": "#111A2E",
     "border": "#1E293B",
-    "emerald": "#F97316",
-    "emerald_light": "#FB923C",
-    "emerald_pale": "#FDBA74",
+    "emerald": "#10B981",
+    "emerald_light": "#34D399",
+    "emerald_pale": "#6EE7B7",
     "text": "#C9D1D9",
     "dim": "#7D8DA1",
     "red": "#EF4444",
@@ -472,7 +472,7 @@ def render(stats, path="assets/card.svg"):
     fx.append('<g class="meteor">')
     fx.append(
         f'<text x="{mx}" y="{my}" font-family="{MONO}" font-size="15" '
-        f'font-weight="700" fill="#FFF3E0">@</text>'
+        f'font-weight="700" fill="#EAFFF6">@</text>'
     )
     for k in range(1, 12):
         fx.append(
@@ -609,7 +609,7 @@ def render(stats, path="assets/card.svg"):
     <stop offset="100%" stop-color="{t["bg_bottom"]}"/>
   </linearGradient>
   <linearGradient id="moonGrad" x1="0" y1="0" x2="0.7" y2="1">
-    <stop offset="0%" stop-color="#FFF3E0"/>
+    <stop offset="0%" stop-color="#EAFFF6"/>
     <stop offset="45%" stop-color="{t["emerald_pale"]}"/>
     <stop offset="100%" stop-color="{t["emerald"]}"/>
   </linearGradient>
@@ -676,7 +676,7 @@ def _starfield(W, H, count=54, seed=7):
         s = (s * 1103515245 + 12345) & 0x7FFFFFFF
         r = 0.6 + (s % 100) / 100.0
         out.append(
-            f'<circle cx="{x}" cy="{y}" r="{r:.2f}" fill="#FDBA74" class="star" '
+            f'<circle cx="{x}" cy="{y}" r="{r:.2f}" fill="#9FE8CB" class="star" '
             f'style="animation-delay:{(i % 9) * 450}ms"/>'
         )
     return "".join(out)
