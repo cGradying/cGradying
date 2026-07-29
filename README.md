@@ -30,4 +30,4 @@
 
 ---
 
-[![Profile views](https://komarev.com/ghpvc/?username=cGradying&style=flat-square&color=10B981&label=PROFILE+VIEWS)](https://github.com/cGradying)
+[![Profile views](https://komarev.com/ghpvc/?username=cGradying&style=flat-square&color=F97316&label=PROFILE+VIEWS)](https://github.com/cGradying)
