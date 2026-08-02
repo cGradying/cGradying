@@ -1,34 +1,6 @@
 {
-  "additions": 140601,
+  "additions": 140614,
   "calendar": [
-    {
-      "count": 0,
-      "date": "2025-07-27"
-    },
-    {
-      "count": 0,
-      "date": "2025-07-28"
-    },
-    {
-      "count": 0,
-      "date": "2025-07-29"
-    },
-    {
-      "count": 0,
-      "date": "2025-07-30"
-    },
-    {
-      "count": 0,
-      "date": "2025-07-31"
-    },
-    {
-      "count": 0,
-      "date": "2025-08-01"
-    },
-    {
-      "count": 0,
-      "date": "2025-08-02"
-    },
     {
       "count": 0,
       "date": "2025-08-03"
@@ -1482,13 +1454,17 @@
       "date": "2026-07-31"
     },
     {
-      "count": 15,
+      "count": 16,
       "date": "2026-08-01"
+    },
+    {
+      "count": 0,
+      "date": "2026-08-02"
     }
   ],
-  "commits": 214,
+  "commits": 215,
   "contributed": 0,
-  "deletions": 2514,
+  "deletions": 2527,
   "followers": 0,
   "issues": 0,
   "languages": [
@@ -1517,5 +1493,5 @@
   "prs": 0,
   "repos": 6,
   "stars": 0,
-  "total_contributions": 220
+  "total_contributions": 221
 }
