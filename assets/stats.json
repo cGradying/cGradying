@@ -1,5 +1,5 @@
 {
-  "additions": 165829,
+  "additions": 178565,
   "calendar": [
     {
       "count": 0,
@@ -1478,50 +1478,50 @@
       "date": "2026-08-13"
     },
     {
-      "count": 3,
+      "count": 17,
       "date": "2026-08-14"
     }
   ],
-  "commits": 344,
+  "commits": 358,
   "contributed": 1,
-  "deletions": 5823,
+  "deletions": 6056,
   "followers": 0,
   "issues": 0,
   "languages": [
     {
       "color": "#e34c26",
       "name": "HTML",
-      "pct": 45.2694824346013
+      "pct": 37.711237978829395
     },
     {
       "color": "#F05138",
       "name": "Swift",
-      "pct": 34.36045565978761
+      "pct": 28.390136883716625
+    },
+    {
+      "color": "#178600",
+      "name": "C#",
+      "pct": 17.487481197587265
     },
     {
       "color": "#f1e05a",
       "name": "JavaScript",
-      "pct": 11.1938957945076
+      "pct": 9.26321441098685
     },
     {
       "color": "#3572A5",
       "name": "Python",
-      "pct": 7.298878618101104
+      "pct": 6.011230877488966
     },
     {
       "color": "#663399",
       "name": "CSS",
-      "pct": 0.7696232034014445
-    },
-    {
-      "color": "#89e051",
-      "name": "Shell",
-      "pct": 0.5355746600482468
+      "pct": 0.6338484315721292
     }
   ],
   "loc_skipped": false,
   "prs": 2,
   "repos": 10,
   "stars": 0,
-  "total_contributions": 358
+  "total_contributions": 372
 }
