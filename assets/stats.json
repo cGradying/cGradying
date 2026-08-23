@@ -1,5 +1,5 @@
 {
-  "additions": 190941,
+  "additions": 146664,
   "calendar": [
     {
       "count": 0,
@@ -1458,50 +1458,50 @@
       "date": "2026-08-22"
     },
     {
-      "count": 3,
+      "count": 4,
       "date": "2026-08-23"
     }
   ],
-  "commits": 495,
+  "commits": 498,
   "contributed": 1,
-  "deletions": 7391,
+  "deletions": 3717,
   "followers": 0,
   "issues": 0,
   "languages": [
     {
-      "color": "#F05138",
-      "name": "Swift",
-      "pct": 37.29142270577161
-    },
-    {
       "color": "#e34c26",
       "name": "HTML",
-      "pct": 30.321038763770414
-    },
-    {
-      "color": "#178600",
-      "name": "C#",
-      "pct": 14.102751561031864
+      "pct": 65.53521341010952
     },
     {
       "color": "#f1e05a",
       "name": "JavaScript",
-      "pct": 12.373103250396165
+      "pct": 20.596468641476953
     },
     {
       "color": "#3572A5",
       "name": "Python",
-      "pct": 4.7356279749455075
+      "pct": 10.364136564661186
     },
     {
       "color": "#663399",
       "name": "CSS",
-      "pct": 0.7574495750577348
+      "pct": 1.657712742275385
+    },
+    {
+      "color": "#F05138",
+      "name": "Swift",
+      "pct": 0.809563384880235
+    },
+    {
+      "color": "#178600",
+      "name": "C#",
+      "pct": 0.7058635837464011
     }
   ],
   "loc_skipped": false,
-  "prs": 7,
-  "repos": 13,
+  "prs": 6,
+  "repos": 12,
   "stars": 0,
-  "total_contributions": 513
+  "total_contributions": 514
 }
