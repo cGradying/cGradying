@@ -49,25 +49,49 @@ def _split(svg_text):
     return defs, style, body, w, h, alt
 
 
-def _dither_field(H):
-    """Flat void background + three deterministic <pattern> textures behind
-    all three panels: halftone dots, 4x4 Bayer ordered dither, CRT scanlines.
-    No SVG filters, so no feTurbulence/Safari risk - and unlike the filter
-    version this replaces, these are actually visible at full opacity. A
-    seeded pixel-art galaxy sits dim behind the tech-stack panel."""
+CELL_W, CELL_H = 10, 16  # glyph field cell size; coarsen if scene.svg clears ~2MB
+RAMP = " .'`:,-~+=*coO08#%@"
+
+
+def _atmosphere(H):
+    """Full-canvas ASCII glyph shader over a seeded nebula, three pre-rendered
+    density states cross-fading so it breathes rather than reading as static
+    wallpaper. Halftone dots are radius-scaled by the same nebula (screened-
+    photo look), bloom lifts the bright cells, a vignette pulls focus to
+    centre, and CRT scanlines sit over everything. A seeded pixel-art galaxy
+    sits dim behind the tech-stack panel."""
     t = THEME
-    defs = (
-        pixel.halftone_pattern("scHalf", t["dim"], tile=6, dot_r=1.3)
-        + pixel.bayer_pattern("scBayer", t["bg_top"], t["panel"])
-        + pixel.scanline_pattern("scScan", "#000000", gap=4, opacity=0.35)
+    cols, rows = round(W / CELL_W), round(H / CELL_H)
+    grid = pixel.nebula(cols, rows, seed=17)
+
+    atm_a = pixel.ascii_field(grid, PALETTE, RAMP, CELL_W, CELL_H, density=0.82)
+    atm_b = pixel.ascii_field(grid, PALETTE, RAMP, CELL_W, CELL_H, density=1.0)
+    atm_c = pixel.ascii_field(grid, PALETTE, RAMP, CELL_W, CELL_H, density=1.18)
+    half = pixel.halftone_field(grid, t["dim"], cell=CELL_W)
+
+    # Bloom: only the bright cells (light > 0.75), blurred through the same
+    # #glow filter make_card.py/make_stats.py already ship (proven through
+    # Camo) and screened back over the field - this is the "soothing" glow.
+    bright = [[v if v > 0.75 else 0.0 for v in row] for row in grid]
+    bloom_field = pixel.halftone_field(bright, t["emerald_light"], cell=CELL_W)
+
+    defs = pixel.scanline_pattern("scScan", "#000000", gap=4, opacity=0.35) + (
+        f'<radialGradient id="vignette" cx="0.5" cy="0.42" r="0.75">'
+        f'<stop offset="0%" stop-color="{t["bg_top"]}" stop-opacity="0"/>'
+        f'<stop offset="100%" stop-color="{t["bg_top"]}" stop-opacity="0.55"/>'
+        f'</radialGradient>'
     )
     galaxy = pixel.pixel_galaxy(W * 0.72, 660, 360, 220, seed=17, palette=PALETTE)
     body = (
         f'<rect width="{W}" height="{H}" fill="{t["bg_top"]}"/>'
-        f'<rect width="{W}" height="{H}" fill="url(#scBayer)" opacity="0.5"/>'
+        f'<g opacity="0.6">{half}</g>'
         f'<g class="galaxy" opacity="0.55">{galaxy}</g>'
-        f'<rect width="{W}" height="{H}" fill="url(#scHalf)" opacity="0.5"/>'
+        f'<g class="atm atmA">{atm_a}</g>'
+        f'<g class="atm atmB">{atm_b}</g>'
+        f'<g class="atm atmC">{atm_c}</g>'
+        f'<g class="bloom" filter="url(#glow)">{bloom_field}</g>'
         f'<rect class="scanPulse" width="{W}" height="{H}" fill="url(#scScan)"/>'
+        f'<rect width="{W}" height="{H}" fill="url(#vignette)"/>'
     )
     return defs, body
 
@@ -92,7 +116,7 @@ def render(stats, path=OUT):
         os.remove(fp)  # scratch fragment, not a committed asset
 
     H = round(y)
-    field_defs, field_body = _dither_field(H)
+    field_defs, field_body = _atmosphere(H)
     parts.insert(0, field_defs)
 
     style_block = "".join(styles) + (
@@ -100,7 +124,15 @@ def render(stats, path=OUT):
         "@keyframes galaxyDrift{0%,100%{opacity:.5}50%{opacity:.65}}"
         ".scanPulse{animation:scanPulse 5s ease-in-out infinite}"
         "@keyframes scanPulse{0%,100%{opacity:.3}50%{opacity:.42}}"
-        "@media (prefers-reduced-motion: reduce){*{animation:none!important}}"
+        # Atmosphere breathes: three pre-rendered density states cross-fade on
+        # a soft ease (not steps() - the one place tweening is wanted, since
+        # that's what makes it read as breathing rather than flicker).
+        ".atm{opacity:0;animation:atmCycle 14s ease-in-out infinite}"
+        ".atmA{animation-delay:0s}.atmB{animation-delay:-4.67s}.atmC{animation-delay:-9.33s}"
+        "@keyframes atmCycle{0%,88%,100%{opacity:0}11%,33%{opacity:1}}"
+        ".bloom{animation:bloomPulse 7s ease-in-out infinite}"
+        "@keyframes bloomPulse{0%,100%{opacity:.5}50%{opacity:.8}}"
+        "@media (prefers-reduced-motion: reduce){*{animation:none!important}.atmB{opacity:1!important}}"
     )
     alt_text = "; ".join(a for a in alts if a)
 
@@ -128,10 +160,19 @@ def demo():
     ET.parse(p)  # malformed SVG renders as nothing at all
     assert 'aria-label="' in svg.split("\n", 1)[0], "missing composed alt text"
     assert "prefers-reduced-motion" in svg, "missing reduced-motion guard"
-    for pid in ("scHalf", "scBayer", "scScan"):
-        assert svg.count(f'id="{pid}"') == 1, f"pattern {pid} missing or duplicated"
+    assert svg.count('id="scScan"') == 1, "scanline pattern missing or duplicated"
     assert svg.count('class="galaxy"') == 1, "galaxy sprite missing"
     assert "feTurbulence" not in svg, "should be pattern-based, not filter-based"
+    for cls in ("atmA", "atmB", "atmC"):
+        assert f'class="atm {cls}"' in svg, f"missing atmosphere layer {cls}"
+    assert 'class="bloom"' in svg, "missing bloom layer"
+    assert 'id="vignette"' in svg, "missing vignette"
+    # The three density states must actually differ, or the breathing
+    # animation would be cross-fading between identical frames.
+    import re as _re
+    atm_bodies = _re.findall(r'class="atm atm[ABC]">(.*?)</g>', svg, _re.S)
+    assert len(atm_bodies) == 3 and len(set(atm_bodies)) == 3, \
+        "atmosphere density states must differ from each other"
     before = svg
     render(stats, p)
     assert open(p, encoding="utf-8").read() == before, "render is not deterministic"

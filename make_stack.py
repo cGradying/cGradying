@@ -17,13 +17,16 @@ the first time a new slug is added. Edit STACK below to change the contents.
 """
 import json
 import os
+import random
 import re
 
+import pixel
 from make_card import MONO, THEME, _starfield
 
 ICON_CACHE = "assets/icons.json"
 OUT = "assets/tech-stack.svg"
 CDN = "https://cdn.jsdelivr.net/npm/simple-icons@13/icons/{slug}.svg"
+CAPSULE_CYCLE_S = 12  # sealed -> cracking -> open -> (hold) -> reseal, looped
 
 # (section title, accent colour key, [(label, simple-icons slug), ...])
 STACK = [
@@ -52,7 +55,7 @@ STACK = [
 
 W = 940
 PAD = 22
-TITLE = "Tech Stack"
+TITLE = "> Tech Stack"
 HEADER_H = 48  # room for the title + rule before the first section
 CHIP_H = 28
 CHIP_GAP = 7
@@ -104,11 +107,37 @@ def chip_width(label, has_icon):
     return round(inner + 20, 1)
 
 
+def _capsule_state(x, y, w, h, accent, panel, seam_w, knockout_frac):
+    """One pixel-grid capsule state: a seam gap down the middle (width
+    `seam_w` cells) plus, for the cracking state, a few knocked-out body
+    cells. Cell layout is seeded by shape alone so it's deterministic
+    without threading a seed through every call site."""
+    cols, rows = max(1, round(w / pixel.PX)), max(1, round(h / pixel.PX))
+    mid = cols / 2
+    lo, hi = mid - seam_w / 2, mid + seam_w / 2
+    rng = random.Random(1000 + cols * 31 + rows)
+    n_knock = round(cols * rows * knockout_frac)
+    knock = set()
+    while len(knock) < n_knock:
+        knock.add((rng.randrange(cols), rng.randrange(rows)))
+    out = []
+    for r in range(rows):
+        tone = accent if r == 0 else ("#00000055" if r == rows - 1 else panel)
+        for c in range(cols):
+            if lo <= c < hi or (c, r) in knock:
+                continue
+            out.append(
+                f'<rect x="{x + c * pixel.PX:.0f}" y="{y + r * pixel.PX:.0f}" '
+                f'width="{pixel.PX}" height="{pixel.PX}" fill="{tone}"/>'
+            )
+    return "".join(out)
+
+
 def render(path=OUT, draw_bg=True):
     t = THEME
     icons = load_icons([s for _, _, items in STACK for _, s in items])
 
-    chips, seps, titles, clips = [], [], [], []
+    chips, seps, titles, clips, masks = [], [], [], [], []
     y = PAD + HEADER_H  # leave space for the panel title drawn below
     idx = 0
 
@@ -119,7 +148,7 @@ def render(path=OUT, draw_bg=True):
             f'<rect x="{PAD}" y="{y + 1}" width="3" height="11" rx="1.5" fill="{accent}"/>'
             f'<text x="{PAD + 10}" y="{y + 10.5}" font-family="{MONO}" '
             f'font-size="{SEC_TITLE_FS}" font-weight="700" fill="{accent}" '
-            f'letter-spacing="0.4">{_esc(title)}</text></g>'
+            f'letter-spacing="0.4">&gt; {_esc(title)}</text></g>'
         )
         idx += 1
         y += 22
@@ -133,27 +162,45 @@ def render(path=OUT, draw_bg=True):
                 y += CHIP_H + ROW_GAP
 
             delay = idx * 28
-            parts = [
-                f'<g class="chip" style="animation-delay:{delay}ms">',
+            clip_id = f"pxLogo{idx}"
+
+            # Open state: today's chip, logo screened through pixel.pixel_clip
+            # (a <mask> of grid squares) instead of a smooth Simple Icons path.
+            tx = x + 10
+            open_parts = [
                 f'<rect x="{x}" y="{y}" width="{w}" height="{CHIP_H}" rx="7" '
                 f'fill="{t["panel"]}" stroke="{t["border"]}"/>',
             ]
-            tx = x + 10
             if d:
-                # Simple Icons use a 24x24 viewBox; scale it down in place.
-                s = ICON / 24
+                s = ICON / 24  # Simple Icons ship a 24x24 viewBox
                 gx, gy = x + 10, y + (CHIP_H - ICON) / 2
-                parts.append(
+                open_parts.append(
+                    f'<g mask="url(#{clip_id})">'
                     f'<g transform="translate({gx:.1f} {gy:.1f}) scale({s:.4f})">'
-                    f'<path d="{d}" fill="{accent}"/></g>'
+                    f'<path d="{d}" fill="{accent}"/></g></g>'
                 )
+                masks.append(pixel.pixel_clip(clip_id, cell=3))
                 tx += ICON + 6
-            parts.append(
+            open_parts.append(
                 f'<text x="{tx:.1f}" y="{y + CHIP_H / 2 + 3.9:.1f}" font-family="{MONO}" '
                 f'font-size="{FS}" fill="{t["text"]}">{_esc(label)}</text>'
             )
-            parts.append("</g>")
-            chips.append("".join(parts))
+            open_svg = "".join(open_parts)
+
+            sealed_svg = _capsule_state(x, y, w, CHIP_H, accent, t["panel"], seam_w=1, knockout_frac=0.0)
+            cracking_svg = _capsule_state(x, y, w, CHIP_H, accent, t["panel"], seam_w=2, knockout_frac=0.05)
+
+            # Three states stacked at the same coords, switched by CSS opacity
+            # with steps(1,end); staggered per chip so a handful are open at
+            # any moment instead of every capsule cracking in unison.
+            chip_delay = f"{-(idx * 340) % (CAPSULE_CYCLE_S * 1000)}ms"
+            chips.append(
+                f'<g class="chip" style="animation-delay:{delay}ms">'
+                f'<g class="cap capSealed" style="animation-delay:{chip_delay}">{sealed_svg}</g>'
+                f'<g class="cap capCracking" style="animation-delay:{chip_delay}">{cracking_svg}</g>'
+                f'<g class="cap capOpen" style="animation-delay:{chip_delay}">{open_svg}</g>'
+                f'</g>'
+            )
             # Same rect again, as the shine's clip - the sweep only lights chips.
             clips.append(
                 f'<rect x="{x}" y="{y}" width="{w}" height="{CHIP_H}" rx="7"/>'
@@ -179,6 +226,8 @@ def render(path=OUT, draw_bg=True):
         f'letter-spacing="0.5">{_esc(TITLE)}</text>'
         f'<line x1="{PAD}" y1="{PAD + 32}" x2="{W - PAD}" y2="{PAD + 32}" '
         f'stroke="{t["border"]}" stroke-width="1" class="fade"/>'
+        f'<line x1="{PAD}" y1="{PAD + 35}" x2="{W - PAD}" y2="{PAD + 35}" '
+        f'stroke="{t["border"]}" stroke-width="1" opacity="0.4" class="fade"/>'
     )
 
     svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}" role="img" aria-label="Tech stack: game development, AI and machine learning, software engineering, web frontend and backend">
@@ -193,6 +242,7 @@ def render(path=OUT, draw_bg=True):
     <stop offset="100%" stop-color="{t["emerald_pale"]}" stop-opacity="0"/>
   </linearGradient>
   <clipPath id="chipShapes">{"".join(clips)}</clipPath>
+  {"".join(masks)}
 </defs>
 <style>
   .fade {{ opacity:0; animation: sfade .45s ease-out forwards; }}
@@ -207,6 +257,21 @@ def render(path=OUT, draw_bg=True):
   .shine {{ animation: sweep 4.5s ease-in-out {len(clips) * 28 + 500}ms infinite; }}
   @keyframes sweep {{ 0% {{ transform:translateX(-320px); }}
                       55%,100% {{ transform:translateX({W + 320}px); }} }}
+  /* Capsule cycle: sealed holds, cracks open, reveals the logo, holds, then
+     reseals. snap with steps(1,end) - only the atmosphere breathing tweens. */
+  .cap {{ opacity:0; animation-duration:{CAPSULE_CYCLE_S}s;
+          animation-iteration-count:infinite; animation-timing-function:steps(1,end); }}
+  .capSealed {{ animation-name:capSealed; }}
+  .capCracking {{ animation-name:capCracking; }}
+  .capOpen {{ animation-name:capOpen; }}
+  @keyframes capSealed {{ 0%,58% {{ opacity:1; }} 58.01%,100% {{ opacity:0; }} }}
+  @keyframes capCracking {{ 0%,58% {{ opacity:0; }} 58.01%,66% {{ opacity:1; }}
+                            66.01%,100% {{ opacity:0; }} }}
+  @keyframes capOpen {{ 0%,66% {{ opacity:0; }} 66.01%,92% {{ opacity:1; }}
+                        92.01%,100% {{ opacity:0; }} }}
+  @media (prefers-reduced-motion: reduce) {{
+    *{{animation:none!important}} .capOpen{{opacity:1!important}}
+  }}
 </style>
 {f'<rect width="{W}" height="{H}" rx="14" fill="url(#sbg)"/><rect x="0.5" y="0.5" width="{W - 1}" height="{H - 1}" rx="14" fill="none" stroke="{t["border"]}"/>' if draw_bg else ''}
 {_starfield(W, H, count=40, seed=23)}
@@ -241,6 +306,9 @@ def demo():
     import xml.etree.ElementTree as ET
     ET.parse(p)
     assert n == sum(len(i) for _, _, i in STACK), "chip count mismatch"
+    assert svg.count('class="cap capSealed"') == n, "every chip needs a sealed capsule state"
+    assert svg.count('class="cap capCracking"') == n, "every chip needs a cracking state"
+    assert svg.count('class="cap capOpen"') == n, "every chip needs an open state"
     # No chip may spill past the right edge or below the canvas.
     for x, y, cw, ch in re.findall(
         r'<rect x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="(28)"', svg

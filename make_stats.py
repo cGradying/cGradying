@@ -17,8 +17,11 @@ graph. Adds a busiest-day callout and a peak marker on the graph.
 import datetime
 import math
 import os
+import random
+import re
 
-from make_card import MONO, THEME, _esc, _starfield
+import pixel
+from make_card import MONO, PALETTE, THEME, _esc, _starfield
 
 OUT = "assets/github-stats.svg"
 W, PAD = 940, 24
@@ -87,6 +90,34 @@ def _n(v):
     return f"{v:,}"
 
 
+RANK_CYCLE_S = 10  # sealed -> cracking -> open (letter revealed) -> reseal
+
+
+def _pixel_disc(cx, cy, r, accent, panel, seam=False, knockout=0.0):
+    """A pixel-grid disc for the rank capsule's sealed/cracking states -
+    same knockout-cell vocabulary as make_stack.py's tech-stack capsules,
+    but circular instead of a pill."""
+    cell = pixel.PX
+    n = round(2 * r / cell)
+    rng = random.Random(2000 + n)
+    seam_w = 2 if seam else 0
+    out = []
+    for ry in range(-n, n + 1):
+        for rx in range(-n, n + 1):
+            if rx * rx + ry * ry > n * n:
+                continue
+            if seam and abs(rx) < seam_w:
+                continue
+            if knockout and rng.random() < knockout:
+                continue
+            tone = accent if ry < -n * 0.4 else panel
+            out.append(
+                f'<rect x="{cx + rx * cell - cell / 2:.0f}" y="{cy + ry * cell - cell / 2:.0f}" '
+                f'width="{cell}" height="{cell}" fill="{tone}"/>'
+            )
+    return "".join(out)
+
+
 def render(stats, path=OUT, draw_bg=True):
     t = THEME
     fade = []          # (element markup, stagger index)
@@ -105,14 +136,16 @@ def render(stats, path=OUT, draw_bg=True):
     # ---- header ---------------------------------------------------------
     add(f'<text x="{PAD}" y="{PAD + 19}" font-family="{MONO}" font-size="18" '
         f'font-weight="700" fill="{t["emerald_light"]}" letter-spacing="0.5">'
-        f'GitHub Stats</text>')
+        f'&gt; GitHub Stats</text>')
     add(f'<line x1="{PAD}" y1="{PAD + 32}" x2="{W - PAD}" y2="{PAD + 32}" '
         f'stroke="{t["border"]}" stroke-width="1"/>')
+    add(f'<line x1="{PAD}" y1="{PAD + 35}" x2="{W - PAD}" y2="{PAD + 35}" '
+        f'stroke="{t["border"]}" stroke-width="1" opacity="0.4"/>')
 
     # ---- overview list --------------------------------------------------
     ov_x, ov_y = PAD + 6, 98
     add(f'<text x="{ov_x}" y="{ov_y - 20}" font-family="{MONO}" font-size="12.5" '
-        f'font-weight="700" fill="{t["emerald_pale"]}">Overview</text>')
+        f'font-weight="700" fill="{t["emerald_pale"]}">&gt; Overview</text>')
     rows = [
         ("Total Stars", _n(stats["stars"])),
         ("Total Commits", _n(stats["commits"])),
@@ -130,44 +163,44 @@ def render(stats, path=OUT, draw_bg=True):
             f'<tspan fill="{t["text"]}">{_esc(v)}</tspan></text>')
 
     # ---- rank badge -----------------------------------------------------
-    # A HUD-style gauge: a slowly rotating dashed outer ring, a dial of tick
-    # marks that fill up to the score, and the progress arc itself.
-    # Centred in the gap between the overview list (ends ~x200) and the
-    # language block (starts x500), rather than pushed up against the latter.
+    # Pixel HUD gauge: grid-snapped tick marks, a pixel_arc progress ring, and
+    # a rank capsule at the centre that dissolves (sealed -> cracking -> open)
+    # to reveal the letter - same three-state vocabulary as the tech-stack
+    # chips, one slower-cycle instance.
     rx, ry, rr = 350, 150, 38
     RANK_FS = 30
-    circ = 2 * math.pi * rr
-    arc = circ * min(max(score, 0.06), 1.0)
-
-    add(f'<circle class="dial" cx="{rx}" cy="{ry}" r="52" fill="none" '
-        f'stroke="{t["border"]}" stroke-width="1" stroke-dasharray="2 7"/>')
 
     ticks, TICKN = [], 24
     for i in range(TICKN):
         ang = math.radians(i * (360 / TICKN) - 90)
         lit = (i / TICKN) < score
         r2 = 47 if i % 3 == 0 else 45
+        tx1, ty1 = pixel.snap(rx + 42 * math.cos(ang)), pixel.snap(ry + 42 * math.sin(ang))
+        tx2, ty2 = pixel.snap(rx + r2 * math.cos(ang)), pixel.snap(ry + r2 * math.sin(ang))
         ticks.append(
-            f'<line x1="{rx + 42 * math.cos(ang):.1f}" y1="{ry + 42 * math.sin(ang):.1f}" '
-            f'x2="{rx + r2 * math.cos(ang):.1f}" y2="{ry + r2 * math.sin(ang):.1f}" '
-            f'stroke="{t["emerald_light"] if lit else t["border"]}" '
-            f'stroke-width="{2 if lit else 1.4}" stroke-linecap="round"/>'
+            f'<rect x="{tx2 - 2}" y="{ty2 - 2}" width="4" height="4" '
+            f'fill="{t["emerald_light"] if lit else t["border"]}"/>'
         )
     add(f'<g>{"".join(ticks)}</g>')
 
-    add(f'<circle cx="{rx}" cy="{ry}" r="{rr}" fill="{t["panel"]}" '
-        f'stroke="{t["border"]}" stroke-width="5"/>')
-    # The -90 lives on a wrapper: a CSS transform on the circle itself would
-    # override the presentation attribute and swing the arc's start to 3 o'clock.
-    add(f'<g transform="rotate(-90 {rx} {ry})">'
-        f'<circle class="ring" cx="{rx}" cy="{ry}" r="{rr}" fill="none" '
-        f'stroke="{t["emerald_light"]}" stroke-width="5" stroke-linecap="round" '
-        f'stroke-dasharray="{arc:.1f} {circ - arc:.1f}" filter="url(#ringGlow)"/></g>')
-    # 0.355 * font-size puts the cap-height midpoint on the circle's centre;
-    # the previous hand-picked offset sat the letter a couple of pixels high.
-    add(f'<text x="{rx}" y="{ry + RANK_FS * 0.355:.1f}" text-anchor="middle" '
+    add(pixel.pixel_bar(rx - rr - 4, ry - rr - 4, 2 * (rr + 4), 2 * (rr + 4),
+                         t["panel"])[0])
+    add(f'<g filter="url(#ringGlow)">'
+        f'{pixel.pixel_arc(rx, ry, rr, min(max(score, 0.06), 1.0), t["emerald_light"])}'
+        f'</g>')
+
+    disc_r = 30
+    sealed = _pixel_disc(rx, ry, disc_r, t["emerald_light"], t["panel"])
+    cracking = _pixel_disc(rx, ry, disc_r, t["emerald_light"], t["panel"], seam=True, knockout=0.08)
+    letter_svg = (
+        f'<text x="{rx}" y="{ry + RANK_FS * 0.355:.1f}" text-anchor="middle" '
         f'font-family="{MONO}" font-size="{RANK_FS}" font-weight="700" '
-        f'fill="{t["text"]}">{_esc(letter)}</text>')
+        f'fill="{t["text"]}">{_esc(letter)}</text>'
+    )
+    add(f'<g class="rankCap" style="animation-duration:{RANK_CYCLE_S}s">'
+        f'<g class="rc rcSealed">{sealed}</g>'
+        f'<g class="rc rcCracking">{cracking}</g>'
+        f'<g class="rc rcOpen">{letter_svg}</g></g>')
     # Label moved outside the ring - inside it collided with the letter.
     add(f'<text x="{rx}" y="{ry + 68}" text-anchor="middle" font-family="{MONO}" '
         f'font-size="9.5" letter-spacing="1.5" fill="{t["dim"]}">RANK '
@@ -176,19 +209,15 @@ def render(stats, path=OUT, draw_bg=True):
     # ---- languages ------------------------------------------------------
     lx, lw = 500, W - PAD - 500
     add(f'<text x="{lx}" y="78" font-family="{MONO}" font-size="12.5" '
-        f'font-weight="700" fill="{t["emerald_pale"]}">Most Used Languages</text>')
+        f'font-weight="700" fill="{t["emerald_pale"]}">&gt; Most Used Languages</text>')
 
     langs = stats.get("languages", [])[:6]
     total_pct = sum(l["pct"] for l in langs) or 1.0
     bx = lx
     bar = []
-    for i, l in enumerate(langs):
-        seg = lw * l["pct"] / total_pct
-        r_ = 5 if i == 0 else 0
-        bar.append(
-            f'<rect x="{bx:.1f}" y="92" width="{max(seg, 1.2):.1f}" height="11" '
-            f'fill="{l.get("color") or t["emerald"]}" rx="{r_}"/>'
-        )
+    for l in langs:
+        seg = max(lw * l["pct"] / total_pct, pixel.PX)
+        bar.append(pixel.pixel_bar(bx, 92, seg, 12, l.get("color") or t["emerald"])[0])
         bx += seg
     add(f'<g class="bar">{"".join(bar)}</g>')
 
@@ -242,13 +271,22 @@ def render(stats, path=OUT, draw_bg=True):
     top = max(peak, 1)
     add(f'<text x="{PAD}" y="{gy0 - 14}" font-family="{MONO}" font-size="12.5" '
         f'font-weight="700" fill="{t["emerald_pale"]}">'
-        f'Contribution Graph <tspan fill="{t["dim"]}">- last {len(recent)} days'
+        f'&gt; Contribution Graph <tspan fill="{t["dim"]}">- last {len(recent)} days'
         f', peak {peak}</tspan></text>')
 
     if len(recent) >= 2:
         step = (gx1 - gx0) / (len(recent) - 1)
-        pts = [(gx0 + i * step, gy1 - (c / top) * (gy1 - gy0))
-               for i, (_, c) in enumerate(recent)]
+        col_w = max(pixel.PX, pixel.snap(step * 0.6))
+        cols_svg, xs = [], []
+        for i, (_, c) in enumerate(recent):
+            cx = gx0 + i * step
+            xs.append(cx)
+            ch = pixel.snap((c / top) * (gy1 - gy0)) if c else 0
+            if ch <= 0:
+                continue
+            tone = t["emerald_light"] if c == peak and peak > 0 else t["emerald"]
+            cols_svg.append(pixel.pixel_bar(cx - col_w / 2, gy1 - ch, col_w, ch, tone)[0])
+        add(f'<g class="area">{"".join(cols_svg)}</g>')
 
         for f in (0.0, 0.5, 1.0):  # gridlines + y axis labels
             yy = gy1 - f * (gy1 - gy0)
@@ -258,25 +296,19 @@ def render(stats, path=OUT, draw_bg=True):
                 f'font-family="{MONO}" font-size="10" fill="{t["dim"]}">'
                 f'{int(round(top * f))}</text>')
 
-        line = " ".join(f"{x:.1f},{y:.1f}" for x, y in pts)
-        add(f'<polygon class="area" points="{gx0:.1f},{gy1} {line} {gx1:.1f},{gy1}" '
-            f'fill="url(#areaGrad)"/>')
-        add(f'<polyline class="spark" points="{line}" fill="none" '
-            f'stroke="{t["emerald_light"]}" stroke-width="2" '
-            f'stroke-linejoin="round" stroke-linecap="round"/>')
-
-        # Peak marker - the one point worth calling out.
+        # Peak marker - a 2x2 pixel block instead of a smooth circle.
         pi = max(range(len(recent)), key=lambda i: recent[i][1])
-        px, py = pts[pi]
         if peak > 0:
-            add(f'<circle cx="{px:.1f}" cy="{py:.1f}" r="4" '
-                f'fill="{t["bg_top"]}" stroke="{t["emerald_pale"]}" stroke-width="2"/>'
-                f'<text x="{min(px, gx1 - 46):.1f}" y="{py - 11:.1f}" '
+            px = xs[pi]
+            py = gy1 - pixel.snap((peak / top) * (gy1 - gy0))
+            add(pixel.pixel_bar(px - pixel.PX, py - pixel.PX, 2 * pixel.PX, 2 * pixel.PX,
+                                 t["emerald_pale"])[0])
+            add(f'<text x="{min(px, gx1 - 46):.1f}" y="{py - 11:.1f}" '
                 f'text-anchor="middle" font-family="{MONO}" font-size="10" '
                 f'fill="{t["emerald_pale"]}">{peak} on {_fmt_day(recent[pi][0])}</text>')
 
-        for i, (x, y) in enumerate(pts):  # x axis labels, thinned out
-            if i % 4 == 0 or i == len(pts) - 1:
+        for i, x in enumerate(xs):  # x axis labels, thinned out
+            if i % 4 == 0 or i == len(xs) - 1:
                 add(f'<text x="{x:.1f}" y="{gy1 + 18}" text-anchor="middle" '
                     f'font-family="{MONO}" font-size="9.5" fill="{t["dim"]}">'
                     f'{int(recent[i][0][-2:])}</text>')
@@ -293,10 +325,6 @@ def render(stats, path=OUT, draw_bg=True):
     <stop offset="0%" stop-color="{t["bg_top"]}"/>
     <stop offset="100%" stop-color="{t["bg_bottom"]}"/>
   </linearGradient>
-  <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-    <stop offset="0%" stop-color="{t["emerald"]}" stop-opacity="0.42"/>
-    <stop offset="100%" stop-color="{t["emerald"]}" stop-opacity="0.02"/>
-  </linearGradient>
   <filter id="ringGlow" x="-60%" y="-60%" width="220%" height="220%">
     <feGaussianBlur stdDeviation="2.6" result="b"/>
     <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
@@ -308,26 +336,25 @@ def render(stats, path=OUT, draw_bg=True):
                      to   {{ opacity:1; transform:translateY(0); }} }}
   .star {{ animation: twinkle 4s ease-in-out infinite; }}
   @keyframes twinkle {{ 0%,100% {{ opacity:.15; }} 50% {{ opacity:.7; }} }}
-  /* Draw the sparkline on with a dash sweep. 4000 comfortably exceeds the
-     path length, so the whole line is hidden before it wipes in. */
-  .spark {{ stroke-dasharray:4000; stroke-dashoffset:4000;
-            animation: draw 2.2s ease-out .5s forwards; }}
-  @keyframes draw {{ to {{ stroke-dashoffset:0; }} }}
   .area {{ opacity:0; animation: fdIn .8s ease-out 1.6s forwards; }}
-  .bar  {{ transform-origin:{lx}px 97px; animation: growBar 1s ease-out .4s backwards; }}
-  @keyframes growBar {{ from {{ transform:scaleX(0); }} to {{ transform:scaleX(1); }} }}
-  /* transform-box:fill-box keeps each ring spinning about its own centre, so
-     one rule serves both the rank gauge and the streak ring. */
-  .ring {{ transform-box:fill-box; transform-origin:center;
-           animation: spin 1.1s ease-out .3s backwards; }}
-  @keyframes spin {{ from {{ transform:rotate(-140deg); opacity:0; }}
-                     to   {{ transform:rotate(0deg); opacity:1; }} }}
-  .dial {{ transform-box:fill-box; transform-origin:center;
-           animation: dialSpin 40s linear infinite; }}
-  @keyframes dialSpin {{ to {{ transform:rotate(360deg); }} }}
   .uline {{ transform-box:fill-box; transform-origin:center;
             animation: wipe .7s ease-out .5s backwards; }}
   @keyframes wipe {{ from {{ transform:scaleX(0); }} to {{ transform:scaleX(1); }} }}
+  /* Rank capsule: same sealed -> cracking -> open dissolve as the tech-stack
+     chips, one slower-cycle instance revealing the rank letter. */
+  .rc {{ opacity:0; animation-duration:{RANK_CYCLE_S}s;
+         animation-iteration-count:infinite; animation-timing-function:steps(1,end); }}
+  .rcSealed {{ animation-name:rcSealed; }}
+  .rcCracking {{ animation-name:rcCracking; }}
+  .rcOpen {{ animation-name:rcOpen; }}
+  @keyframes rcSealed {{ 0%,58% {{ opacity:1; }} 58.01%,100% {{ opacity:0; }} }}
+  @keyframes rcCracking {{ 0%,58% {{ opacity:0; }} 58.01%,66% {{ opacity:1; }}
+                           66.01%,100% {{ opacity:0; }} }}
+  @keyframes rcOpen {{ 0%,66% {{ opacity:0; }} 66.01%,92% {{ opacity:1; }}
+                       92.01%,100% {{ opacity:0; }} }}
+  @media (prefers-reduced-motion: reduce) {{
+    *{{animation:none!important}} .rcOpen{{opacity:1!important}}
+  }}
 </style>
 {f'<rect width="{W}" height="{H}" rx="14" fill="url(#statbg)"/><rect x="0.5" y="0.5" width="{W - 1}" height="{H - 1}" rx="14" fill="none" stroke="{t["border"]}"/>' if draw_bg else ''}
 {_starfield(W, H, count=34, seed=41)}
@@ -372,6 +399,8 @@ def demo():
     ET.parse(p)  # malformed SVG renders as nothing at all
     for token in ("HTML", "Total Commits", "Current Streak", "Contribution Graph", "RANK"):
         assert token in svg, f"missing {token!r}"
+    assert "<polyline" not in svg and "<polygon" not in svg, \
+        "graph must be pixel columns, not vector paths"
     before = svg
     render(stats, p)
     assert open(p, encoding="utf-8").read() == before, "render is not deterministic"
