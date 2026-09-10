@@ -103,6 +103,8 @@ def render(stats, path=OUT):
         make_stats.render(stats, "assets/_scene_stats.svg", draw_bg=False)[0],
     ]
 
+    t = THEME
+    plate_gap = 10  # atmosphere only shows in this margin, between/around plates
     parts, styles, bodies, alts, y = [], [], [], [], 0.0
     for i, fp in enumerate(frags):
         svg_text = open(fp, encoding="utf-8").read()
@@ -110,10 +112,25 @@ def render(stats, path=OUT):
         assert w == W, f"{fp}: width {w} != scene width {W}"
         parts.append(defs)
         styles.append(style)
-        bodies.append(f'<g transform="translate(0,{y:.1f})">{body}</g>')
+        # Solid plate behind the panel's own text/graphics - full-bleed
+        # atmosphere reads through only in plate_gap around/between panels,
+        # not directly behind any glyph.
+        plate = (
+            f'<rect x="{plate_gap}" y="{plate_gap:.1f}" width="{W - 2 * plate_gap}" '
+            f'height="{h - 2 * plate_gap:.1f}" rx="14" fill="{t["panel"]}" '
+            f'stroke="{t["border"]}"/>'
+        )
+        bodies.append(f'<g transform="translate(0,{y:.1f})">{plate}{body}</g>')
         alts.append(alt)
         y += h
         os.remove(fp)  # scratch fragment, not a committed asset
+
+    # Each panel embeds its own @font-face (base64 pixel font, ~160KB) so it
+    # stands alone as card.svg/tech-stack.svg/github-stats.svg - but merged
+    # into one scene that's 3 identical copies. Keep only the first.
+    from make_card import pixel_font_face
+    face = pixel_font_face()
+    styles = [face] + [s.replace(face, "", 1) for s in styles]
 
     H = round(y)
     field_defs, field_body = _atmosphere(H)

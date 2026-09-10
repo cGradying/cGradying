@@ -11,7 +11,9 @@ JavaScript - so nothing here relies on scripting.
 
 Edit INFO below to change the text block. Edit THEME to restyle.
 """
+import base64
 import datetime
+import functools
 import html
 import json
 import math
@@ -178,6 +180,30 @@ INFO = [
 
 MONO = "ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace"
 
+# Minecraft-style pixel font for headings/big numbers only. Press Start 2P is
+# a *true* fixed-width font (every glyph, including space, has the same 1000
+# unitsPerEm advance) - unlike MONO's ~0.6em system mono, so it can't drop
+# into the dot-leader tables (INFO rows, stat pairs, overview list, language
+# legend) without recalculating every column-width constant in three files.
+# ponytail: pixel font on headings/section titles/big numbers only, MONO kept
+# for anything whose layout depends on exact monospace column math. Upgrade
+# to font-wide if/when those width constants get reworked for the new metric.
+PIXFONT = "'PixelUI', " + MONO
+_PIXFONT_PATH = os.path.join(os.path.dirname(__file__), "assets", "fonts", "PressStart2P.ttf")
+
+
+@functools.lru_cache(maxsize=1)
+def pixel_font_face():
+    """@font-face block embedding the pixel font as a data URI, so the SVG
+    has no external font request (GitHub's Camo proxy would just drop it).
+    Cached - every render() call in a process reuses the same base64 string."""
+    with open(_PIXFONT_PATH, "rb") as f:
+        b64 = base64.b64encode(f.read()).decode("ascii")
+    return (
+        "@font-face{font-family:'PixelUI';src:url(data:font/ttf;base64,"
+        f"{b64}) format('truetype');font-display:swap;}}"
+    )
+
 # Dark to bright. The moon is drawn by picking a character per pixel from this
 # ramp based on how much light that point on the sphere receives.
 RAMP = " .'`:,-~+=*coO08#%@"
@@ -272,8 +298,8 @@ def render(stats, path="assets/card.svg", draw_bg=True):
 
     # --- header ---------------------------------------------------------
     body.append(
-        f'<text x="{info_x}" y="60" font-family="{MONO}" font-size="17" '
-        f'font-weight="700" fill="{t["emerald_light"]}" class="fade f{delay}">'
+        f'<text x="{info_x}" y="60" font-family="{PIXFONT}" font-size="14" '
+        f'fill="{t["emerald_light"]}" class="fade f{delay}">'
         f'cGradying<tspan fill="{t["dim"]}">@github</tspan></text>'
     )
     styles.append(f".f{delay}{{animation-delay:{delay * 55}ms}}")
@@ -396,8 +422,8 @@ def render(stats, path="assets/card.svg", draw_bg=True):
     # --- stats ----------------------------------------------------------
     y += info_lh * 0.4
     body.append(
-        f'<text x="{info_x}" y="{y:.1f}" font-family="{MONO}" font-size="{info_fs}" '
-        f'font-weight="700" fill="{t["emerald_pale"]}" class="fade f{delay}">'
+        f'<text x="{info_x}" y="{y:.1f}" font-family="{PIXFONT}" font-size="8" '
+        f'fill="{t["emerald_pale"]}" class="fade f{delay}">'
         f'&#9679; GitHub Stats</text>'
     )
     styles.append(f".f{delay}{{animation-delay:{delay * 55}ms}}")
@@ -630,6 +656,7 @@ def render(stats, path="assets/card.svg", draw_bg=True):
   </filter>
 </defs>
 <style>
+  {pixel_font_face()}
   .fade {{ opacity:0; animation: fade .5s ease-out forwards; }}
   @keyframes fade {{ from {{ opacity:0; transform:translateX(-6px); }}
                      to   {{ opacity:1; transform:translateX(0); }} }}

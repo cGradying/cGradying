@@ -21,7 +21,7 @@ import random
 import re
 
 import pixel
-from make_card import MONO, PALETTE, THEME, _esc, _starfield
+from make_card import MONO, PALETTE, PIXFONT, THEME, _esc, _starfield, pixel_font_face
 
 OUT = "assets/github-stats.svg"
 W, PAD = 940, 24
@@ -134,8 +134,8 @@ def render(stats, path=OUT, draw_bg=True):
                          stats["followers"])
 
     # ---- header ---------------------------------------------------------
-    add(f'<text x="{PAD}" y="{PAD + 19}" font-family="{MONO}" font-size="18" '
-        f'font-weight="700" fill="{t["emerald_light"]}" letter-spacing="0.5">'
+    add(f'<text x="{PAD}" y="{PAD + 16}" font-family="{PIXFONT}" font-size="13" '
+        f'fill="{t["emerald_light"]}" letter-spacing="0.5">'
         f'&gt; GitHub Stats</text>')
     add(f'<line x1="{PAD}" y1="{PAD + 32}" x2="{W - PAD}" y2="{PAD + 32}" '
         f'stroke="{t["border"]}" stroke-width="1"/>')
@@ -144,8 +144,8 @@ def render(stats, path=OUT, draw_bg=True):
 
     # ---- overview list --------------------------------------------------
     ov_x, ov_y = PAD + 6, 98
-    add(f'<text x="{ov_x}" y="{ov_y - 20}" font-family="{MONO}" font-size="12.5" '
-        f'font-weight="700" fill="{t["emerald_pale"]}">&gt; Overview</text>')
+    add(f'<text x="{ov_x}" y="{ov_y - 20}" font-family="{PIXFONT}" font-size="9" '
+        f'fill="{t["emerald_pale"]}">&gt; Overview</text>')
     rows = [
         ("Total Stars", _n(stats["stars"])),
         ("Total Commits", _n(stats["commits"])),
@@ -194,7 +194,7 @@ def render(stats, path=OUT, draw_bg=True):
     cracking = _pixel_disc(rx, ry, disc_r, t["emerald_light"], t["panel"], seam=True, knockout=0.08)
     letter_svg = (
         f'<text x="{rx}" y="{ry + RANK_FS * 0.355:.1f}" text-anchor="middle" '
-        f'font-family="{MONO}" font-size="{RANK_FS}" font-weight="700" '
+        f'font-family="{PIXFONT}" font-size="{RANK_FS}" '
         f'fill="{t["text"]}">{_esc(letter)}</text>'
     )
     add(f'<g class="rankCap" style="animation-duration:{RANK_CYCLE_S}s">'
@@ -208,8 +208,8 @@ def render(stats, path=OUT, draw_bg=True):
 
     # ---- languages ------------------------------------------------------
     lx, lw = 500, W - PAD - 500
-    add(f'<text x="{lx}" y="78" font-family="{MONO}" font-size="12.5" '
-        f'font-weight="700" fill="{t["emerald_pale"]}">&gt; Most Used Languages</text>')
+    add(f'<text x="{lx}" y="78" font-family="{PIXFONT}" font-size="9" '
+        f'fill="{t["emerald_pale"]}">&gt; Most Used Languages</text>')
 
     langs = stats.get("languages", [])[:6]
     total_pct = sum(l["pct"] for l in langs) or 1.0
@@ -243,8 +243,8 @@ def render(stats, path=OUT, draw_bg=True):
         (770, _n(long_n), "Longest Streak", f"{_fmt_day(long_a)} - {_fmt_day(long_b)}", False),
     ]
     for cx, big, label, sub, accent in trio:
-        add(f'<text x="{cx}" y="{sy + 36 + 30 * 0.355:.1f}" text-anchor="middle" '
-            f'font-family="{MONO}" font-size="30" font-weight="700" '
+        add(f'<text x="{cx}" y="{sy + 36 + 20 * 0.355:.1f}" text-anchor="middle" '
+            f'font-family="{PIXFONT}" font-size="20" '
             f'fill="{t["emerald_light"] if accent else t["text"]}"'
             f'{" filter=\"url(#ringGlow)\"" if accent else ""}>{_esc(big)}</text>')
         if accent:
@@ -269,9 +269,9 @@ def render(stats, path=OUT, draw_bg=True):
     recent = days[-30:] if days else []
     peak = max((c for _, c in recent), default=0)
     top = max(peak, 1)
-    add(f'<text x="{PAD}" y="{gy0 - 14}" font-family="{MONO}" font-size="12.5" '
-        f'font-weight="700" fill="{t["emerald_pale"]}">'
-        f'&gt; Contribution Graph <tspan fill="{t["dim"]}">- last {len(recent)} days'
+    add(f'<text x="{PAD}" y="{gy0 - 14}" font-family="{PIXFONT}" font-size="9" '
+        f'fill="{t["emerald_pale"]}">'
+        f'&gt; Contribution Graph <tspan fill="{t["dim"]}" font-family="{MONO}">- last {len(recent)} days'
         f', peak {peak}</tspan></text>')
 
     if len(recent) >= 2:
@@ -331,6 +331,7 @@ def render(stats, path=OUT, draw_bg=True):
   </filter>
 </defs>
 <style>
+  {pixel_font_face()}
   .fd {{ opacity:0; animation: fdIn .5s ease-out forwards; }}
   @keyframes fdIn {{ from {{ opacity:0; transform:translateY(6px); }}
                      to   {{ opacity:1; transform:translateY(0); }} }}

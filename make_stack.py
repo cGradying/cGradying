@@ -21,7 +21,7 @@ import random
 import re
 
 import pixel
-from make_card import MONO, THEME, _starfield
+from make_card import MONO, PIXFONT, THEME, _starfield, pixel_font_face
 
 ICON_CACHE = "assets/icons.json"
 OUT = "assets/tech-stack.svg"
@@ -146,8 +146,8 @@ def render(path=OUT, draw_bg=True):
         titles.append(
             f'<g class="fade" style="animation-delay:{idx * 28}ms">'
             f'<rect x="{PAD}" y="{y + 1}" width="3" height="11" rx="1.5" fill="{accent}"/>'
-            f'<text x="{PAD + 10}" y="{y + 10.5}" font-family="{MONO}" '
-            f'font-size="{SEC_TITLE_FS}" font-weight="700" fill="{accent}" '
+            f'<text x="{PAD + 10}" y="{y + 10.5}" font-family="{PIXFONT}" '
+            f'font-size="9" fill="{accent}" '
             f'letter-spacing="0.4">&gt; {_esc(title)}</text></g>'
         )
         idx += 1
@@ -221,8 +221,8 @@ def render(path=OUT, draw_bg=True):
 
     # Panel title, so the README needs no markdown heading above the image.
     header_svg = (
-        f'<text x="{PAD}" y="{PAD + 19}" font-family="{MONO}" font-size="18" '
-        f'font-weight="700" fill="{t["emerald_light"]}" class="fade" '
+        f'<text x="{PAD}" y="{PAD + 16}" font-family="{PIXFONT}" font-size="13" '
+        f'fill="{t["emerald_light"]}" class="fade" '
         f'letter-spacing="0.5">{_esc(TITLE)}</text>'
         f'<line x1="{PAD}" y1="{PAD + 32}" x2="{W - PAD}" y2="{PAD + 32}" '
         f'stroke="{t["border"]}" stroke-width="1" class="fade"/>'
@@ -245,6 +245,7 @@ def render(path=OUT, draw_bg=True):
   {"".join(masks)}
 </defs>
 <style>
+  {pixel_font_face()}
   .fade {{ opacity:0; animation: sfade .45s ease-out forwards; }}
   @keyframes sfade {{ from {{ opacity:0; }} to {{ opacity:1; }} }}
   .chip {{ opacity:0; animation: chipIn .5s cubic-bezier(.2,.8,.3,1) forwards; }}
