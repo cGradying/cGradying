@@ -87,7 +87,7 @@ def _n(v):
     return f"{v:,}"
 
 
-def render(stats, path=OUT):
+def render(stats, path=OUT, draw_bg=True):
     t = THEME
     fade = []          # (element markup, stagger index)
     idx = [0]
@@ -329,8 +329,7 @@ def render(stats, path=OUT):
             animation: wipe .7s ease-out .5s backwards; }}
   @keyframes wipe {{ from {{ transform:scaleX(0); }} to {{ transform:scaleX(1); }} }}
 </style>
-<rect width="{W}" height="{H}" rx="14" fill="url(#statbg)"/>
-<rect x="0.5" y="0.5" width="{W - 1}" height="{H - 1}" rx="14" fill="none" stroke="{t["border"]}"/>
+{f'<rect width="{W}" height="{H}" rx="14" fill="url(#statbg)"/><rect x="0.5" y="0.5" width="{W - 1}" height="{H - 1}" rx="14" fill="none" stroke="{t["border"]}"/>' if draw_bg else ''}
 {_starfield(W, H, count=34, seed=41)}
 {body}
 </svg>

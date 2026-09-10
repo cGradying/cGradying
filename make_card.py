@@ -46,17 +46,20 @@ def _uptime(today=None):
 # scraping them back out or clobbering them with stale ones.
 STATS_PATH = "assets/stats.json"
 
-# --- theme: "astra moon" deep space + emerald green -------------------------
+# --- theme: canopy green/teal (replaced "astra moon" navy/emerald 2026-09) --
+# Named swatches: bg_top=Lacustral, panel/bg_bottom=Understory,
+# emerald=Chlorophyll, emerald_light=Oleander Caterpillar,
+# emerald_pale=Xanthophylls, text=Crown Shyness.
 THEME = {
-    "bg_top": "#0B1120",
-    "bg_bottom": "#0F172A",
-    "panel": "#111A2E",
-    "border": "#1E293B",
-    "emerald": "#10B981",
-    "emerald_light": "#34D399",
-    "emerald_pale": "#6EE7B7",
-    "text": "#C9D1D9",
-    "dim": "#7D8DA1",
+    "bg_top": "#115566",
+    "bg_bottom": "#1B693C",
+    "panel": "#1B693C",
+    "border": "#2A7A4D",
+    "emerald": "#56992F",
+    "emerald_light": "#9BC43C",
+    "emerald_pale": "#E4EC81",
+    "text": "#FAFCFD",
+    "dim": "#A9D9A0",
     "red": "#EF4444",
     "red_light": "#F87171",
 }
@@ -236,9 +239,12 @@ def _esc(s):
     return html.escape(str(s), quote=False)
 
 
-def render(stats, path="assets/card.svg"):
+def render(stats, path="assets/card.svg", draw_bg=True):
     """Write the card. `stats` keys: repos, contributed, stars, commits,
-    followers, additions, deletions, loc_skipped."""
+    followers, additions, deletions, loc_skipped.
+
+    `draw_bg=False` skips the panel's own background/border rects, for
+    compositing into make_scene.py's shared canvas."""
     t = THEME
     W, H = 940, 560
     moon = moon_ascii(rows=26)
@@ -642,8 +648,7 @@ def render(stats, path="assets/card.svg"):
   {fx_css}
   {" ".join(styles)}
 </style>
-<rect width="{W}" height="{H}" rx="14" fill="url(#bg)"/>
-<rect x="0.5" y="0.5" width="{W - 1}" height="{H - 1}" rx="14" fill="none" stroke="{t["border"]}"/>
+{f'<rect width="{W}" height="{H}" rx="14" fill="url(#bg)"/><rect x="0.5" y="0.5" width="{W - 1}" height="{H - 1}" rx="14" fill="none" stroke="{t["border"]}"/>' if draw_bg else ''}
 {_starfield(W, H)}
 <ellipse cx="190" cy="{H // 2}" rx="185" ry="185" fill="url(#halo)" class="halo"/>
 {"".join(moon_body)}

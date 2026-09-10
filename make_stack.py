@@ -104,7 +104,7 @@ def chip_width(label, has_icon):
     return round(inner + 20, 1)
 
 
-def render(path=OUT):
+def render(path=OUT, draw_bg=True):
     t = THEME
     icons = load_icons([s for _, _, items in STACK for _, s in items])
 
@@ -208,8 +208,7 @@ def render(path=OUT):
   @keyframes sweep {{ 0% {{ transform:translateX(-320px); }}
                       55%,100% {{ transform:translateX({W + 320}px); }} }}
 </style>
-<rect width="{W}" height="{H}" rx="14" fill="url(#sbg)"/>
-<rect x="0.5" y="0.5" width="{W - 1}" height="{H - 1}" rx="14" fill="none" stroke="{t["border"]}"/>
+{f'<rect width="{W}" height="{H}" rx="14" fill="url(#sbg)"/><rect x="0.5" y="0.5" width="{W - 1}" height="{H - 1}" rx="14" fill="none" stroke="{t["border"]}"/>' if draw_bg else ''}
 {_starfield(W, H, count=40, seed=23)}
 {header_svg}
 {divider_svg}
