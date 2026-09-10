@@ -24,7 +24,8 @@ import re
 import make_card
 import make_stack
 import make_stats
-from make_card import STATS_PATH, THEME
+import pixel
+from make_card import PALETTE, STATS_PATH, THEME
 
 OUT = "assets/scene.svg"
 W = 940
@@ -49,26 +50,26 @@ def _split(svg_text):
 
 
 def _dither_field(H):
-    """One continuous canopy gradient + baked ordered-dither texture behind
-    all three panels. feTurbulence's `seed` makes it deterministic; the CSS
-    animation only touches opacity, so the noise itself is painted once."""
+    """Flat void background + three deterministic <pattern> textures behind
+    all three panels: halftone dots, 4x4 Bayer ordered dither, CRT scanlines.
+    No SVG filters, so no feTurbulence/Safari risk - and unlike the filter
+    version this replaces, these are actually visible at full opacity. A
+    seeded pixel-art galaxy sits dim behind the tech-stack panel."""
     t = THEME
-    return f'''
-  <linearGradient id="sceneBg" x1="0" y1="0" x2="0.4" y2="1">
-    <stop offset="0%" stop-color="{t["bg_top"]}"/>
-    <stop offset="100%" stop-color="{t["bg_bottom"]}"/>
-  </linearGradient>
-  <filter id="sceneDither" x="0%" y="0%" width="100%" height="100%">
-    <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="7" stitchTiles="stitch" result="noise"/>
-    <feColorMatrix in="noise" type="matrix"
-      values="0 0 0 0 0.898  0 0 0 0 0.925  0 0 0 0 0.506  0 0 0 1 0" result="tinted"/>
-    <feComponentTransfer in="tinted" result="banded">
-      <feFuncA type="discrete" tableValues="0 0.05 0.1 0.16 0.22"/>
-    </feComponentTransfer>
-  </filter>''', (
-        f'<rect width="{W}" height="{H}" fill="url(#sceneBg)"/>'
-        f'<rect class="ditherField" width="{W}" height="{H}" filter="url(#sceneDither)"/>'
+    defs = (
+        pixel.halftone_pattern("scHalf", t["dim"], tile=6, dot_r=1.3)
+        + pixel.bayer_pattern("scBayer", t["bg_top"], t["panel"])
+        + pixel.scanline_pattern("scScan", "#000000", gap=4, opacity=0.35)
     )
+    galaxy = pixel.pixel_galaxy(W * 0.72, 660, 360, 220, seed=17, palette=PALETTE)
+    body = (
+        f'<rect width="{W}" height="{H}" fill="{t["bg_top"]}"/>'
+        f'<rect width="{W}" height="{H}" fill="url(#scBayer)" opacity="0.5"/>'
+        f'<g class="galaxy" opacity="0.55">{galaxy}</g>'
+        f'<rect width="{W}" height="{H}" fill="url(#scHalf)" opacity="0.5"/>'
+        f'<rect class="scanPulse" width="{W}" height="{H}" fill="url(#scScan)"/>'
+    )
+    return defs, body
 
 
 def render(stats, path=OUT):
@@ -95,8 +96,10 @@ def render(stats, path=OUT):
     parts.insert(0, field_defs)
 
     style_block = "".join(styles) + (
-        ".ditherField{opacity:.55;animation:ditherPulse 6s ease-in-out infinite}"
-        "@keyframes ditherPulse{0%,100%{opacity:.4}50%{opacity:.7}}"
+        ".galaxy{animation:galaxyDrift 10s ease-in-out infinite}"
+        "@keyframes galaxyDrift{0%,100%{opacity:.5}50%{opacity:.65}}"
+        ".scanPulse{animation:scanPulse 5s ease-in-out infinite}"
+        "@keyframes scanPulse{0%,100%{opacity:.3}50%{opacity:.42}}"
         "@media (prefers-reduced-motion: reduce){*{animation:none!important}}"
     )
     alt_text = "; ".join(a for a in alts if a)
@@ -125,6 +128,10 @@ def demo():
     ET.parse(p)  # malformed SVG renders as nothing at all
     assert 'aria-label="' in svg.split("\n", 1)[0], "missing composed alt text"
     assert "prefers-reduced-motion" in svg, "missing reduced-motion guard"
+    for pid in ("scHalf", "scBayer", "scScan"):
+        assert svg.count(f'id="{pid}"') == 1, f"pattern {pid} missing or duplicated"
+    assert svg.count('class="galaxy"') == 1, "galaxy sprite missing"
+    assert "feTurbulence" not in svg, "should be pattern-based, not filter-based"
     before = svg
     render(stats, p)
     assert open(p, encoding="utf-8").read() == before, "render is not deterministic"

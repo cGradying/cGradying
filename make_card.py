@@ -18,6 +18,8 @@ import math
 import os
 import random
 
+import pixel
+
 BIRTHDATE = datetime.date(2006, 12, 13)
 
 
@@ -46,23 +48,26 @@ def _uptime(today=None):
 # scraping them back out or clobbering them with stale ones.
 STATS_PATH = "assets/stats.json"
 
-# --- theme: canopy green/teal (replaced "astra moon" navy/emerald 2026-09) --
-# Named swatches: bg_top=Lacustral, panel/bg_bottom=Understory,
-# emerald=Chlorophyll, emerald_light=Oleander Caterpillar,
-# emerald_pale=Xanthophylls, text=Crown Shyness.
+# --- theme: acid-on-black pixel scene (replaced canopy 2026-09) -------------
+# Flat near-black, one acid-green accent - see pixel.py for the tone ramp
+# (PALETTE below) used by the pixelated moon/galaxy art.
 THEME = {
-    "bg_top": "#115566",
-    "bg_bottom": "#1B693C",
-    "panel": "#1B693C",
-    "border": "#2A7A4D",
-    "emerald": "#56992F",
-    "emerald_light": "#9BC43C",
-    "emerald_pale": "#E4EC81",
-    "text": "#FAFCFD",
-    "dim": "#A9D9A0",
+    "bg_top": "#0A0C10",
+    "bg_bottom": "#0A0C10",
+    "panel": "#16241A",
+    "border": "#4F8A2E",
+    "emerald": "#9BE33C",
+    "emerald_light": "#C6F04A",
+    "emerald_pale": "#F2F0C8",
+    "text": "#F2F0C8",
+    "dim": "#4F8A2E",
     "red": "#EF4444",
     "red_light": "#F87171",
 }
+
+# Dark-to-bright ramp for quantised pixel art (pixel.pixel_moon/pixel_galaxy),
+# same 6 tones as THEME above.
+PALETTE = ["#0A0C10", "#16241A", "#4F8A2E", "#9BE33C", "#C6F04A", "#F2F0C8"]
 
 # INFO keys whose value gets the matrix-decode treatment.
 GLITCH_KEYS = {"Host"}
@@ -247,11 +252,9 @@ def render(stats, path="assets/card.svg", draw_bg=True):
     compositing into make_scene.py's shared canvas."""
     t = THEME
     W, H = 940, 560
-    moon = moon_ascii(rows=26)
-
-    moon_fs, moon_lh = 11.0, 12.4
-    moon_h = len(moon) * moon_lh
-    moon_x, moon_y = 190, (H - moon_h) / 2 + 30
+    moon_frag, moon_w, moon_h = pixel.pixel_moon(rows=26, phase=0.55, palette=PALETTE)
+    moon_cx = 190  # centre of the moon column, same spot the ASCII moon occupied
+    moon_x, moon_y = moon_cx - moon_w / 2, (H - moon_h) / 2
 
     info_fs, info_lh = 13.0, 20.0
     info_x, info_top = 372, 96
@@ -260,17 +263,12 @@ def render(stats, path="assets/card.svg", draw_bg=True):
     styles, body, moon_body = [], [], []
 
     # --- moon -----------------------------------------------------------
-    # Kept out of `body` so it sits outside the shake group.
+    # Kept out of `body` so it sits outside the shake group. Pixel art now
+    # (quantised rects from pixel.pixel_moon), not the old ASCII/RAMP text.
     moon_body.append(
-        f'<text x="{moon_x}" y="{moon_y}" text-anchor="middle" '
-        f'font-family="{MONO}" font-size="{moon_fs}" fill="url(#moonGrad)" '
-        f'filter="url(#glow)" class="moon" xml:space="preserve">'
+        f'<g transform="translate({moon_x:.0f},{moon_y:.0f})" '
+        f'filter="url(#glow)" class="moon">{moon_frag}</g>'
     )
-    for i, line in enumerate(moon):
-        moon_body.append(
-            f'<tspan x="{moon_x}" dy="{0 if i == 0 else moon_lh}">{_esc(line)}</tspan>'
-        )
-    moon_body.append("</text>")
 
     # --- header ---------------------------------------------------------
     body.append(
