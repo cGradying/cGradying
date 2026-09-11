@@ -18,7 +18,7 @@ import datetime
 import math
 import os
 
-from make_card import MONO, THEME, _esc, _starfield
+from make_card import MONO, PIXFONT, THEME, _esc, _starfield, pixel_font_face, pixel_texture
 
 OUT = "assets/github-stats.svg"
 W, PAD = 940, 24
@@ -103,16 +103,16 @@ def render(stats, path=OUT):
                          stats["followers"])
 
     # ---- header ---------------------------------------------------------
-    add(f'<text x="{PAD}" y="{PAD + 19}" font-family="{MONO}" font-size="18" '
-        f'font-weight="700" fill="{t["emerald_light"]}" letter-spacing="0.5">'
-        f'GitHub Stats</text>')
+    add(f'<text x="{PAD}" y="{PAD + 16}" font-family="{PIXFONT}" font-size="13" '
+        f'fill="{t["emerald_light"]}" letter-spacing="0.5">'
+        f'&gt; GitHub Stats</text>')
     add(f'<line x1="{PAD}" y1="{PAD + 32}" x2="{W - PAD}" y2="{PAD + 32}" '
         f'stroke="{t["border"]}" stroke-width="1"/>')
 
     # ---- overview list --------------------------------------------------
     ov_x, ov_y = PAD + 6, 98
-    add(f'<text x="{ov_x}" y="{ov_y - 20}" font-family="{MONO}" font-size="12.5" '
-        f'font-weight="700" fill="{t["emerald_pale"]}">Overview</text>')
+    add(f'<text x="{ov_x}" y="{ov_y - 20}" font-family="{PIXFONT}" font-size="9" '
+        f'fill="{t["emerald_pale"]}">&gt; Overview</text>')
     rows = [
         ("Total Stars", _n(stats["stars"])),
         ("Total Commits", _n(stats["commits"])),
@@ -175,8 +175,8 @@ def render(stats, path=OUT):
 
     # ---- languages ------------------------------------------------------
     lx, lw = 500, W - PAD - 500
-    add(f'<text x="{lx}" y="78" font-family="{MONO}" font-size="12.5" '
-        f'font-weight="700" fill="{t["emerald_pale"]}">Most Used Languages</text>')
+    add(f'<text x="{lx}" y="78" font-family="{PIXFONT}" font-size="9" '
+        f'fill="{t["emerald_pale"]}">&gt; Most Used Languages</text>')
 
     langs = stats.get("languages", [])[:6]
     total_pct = sum(l["pct"] for l in langs) or 1.0
@@ -240,9 +240,9 @@ def render(stats, path=OUT):
     recent = days[-30:] if days else []
     peak = max((c for _, c in recent), default=0)
     top = max(peak, 1)
-    add(f'<text x="{PAD}" y="{gy0 - 14}" font-family="{MONO}" font-size="12.5" '
-        f'font-weight="700" fill="{t["emerald_pale"]}">'
-        f'Contribution Graph <tspan fill="{t["dim"]}">- last {len(recent)} days'
+    add(f'<text x="{PAD}" y="{gy0 - 14}" font-family="{PIXFONT}" font-size="9" '
+        f'fill="{t["emerald_pale"]}">'
+        f'&gt; Contribution Graph <tspan fill="{t["dim"]}" font-family="{MONO}">- last {len(recent)} days'
         f', peak {peak}</tspan></text>')
 
     if len(recent) >= 2:
@@ -301,13 +301,17 @@ def render(stats, path=OUT):
     <feGaussianBlur stdDeviation="2.6" result="b"/>
     <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
   </filter>
+  {pixel_texture("statsTex", t["emerald"])}
 </defs>
 <style>
+  {pixel_font_face()}
   .fd {{ opacity:0; animation: fdIn .5s ease-out forwards; }}
   @keyframes fdIn {{ from {{ opacity:0; transform:translateY(6px); }}
                      to   {{ opacity:1; transform:translateY(0); }} }}
   .star {{ animation: twinkle 4s ease-in-out infinite; }}
   @keyframes twinkle {{ 0%,100% {{ opacity:.15; }} 50% {{ opacity:.7; }} }}
+  .tex {{ animation: texPulse 5s ease-in-out infinite; }}
+  @keyframes texPulse {{ 0%,100% {{ opacity:.6; }} 50% {{ opacity:1; }} }}
   /* Draw the sparkline on with a dash sweep. 4000 comfortably exceeds the
      path length, so the whole line is hidden before it wipes in. */
   .spark {{ stroke-dasharray:4000; stroke-dashoffset:4000;
@@ -330,6 +334,7 @@ def render(stats, path=OUT):
   @keyframes wipe {{ from {{ transform:scaleX(0); }} to {{ transform:scaleX(1); }} }}
 </style>
 <rect width="{W}" height="{H}" rx="14" fill="url(#statbg)"/>
+<rect width="{W}" height="{H}" rx="14" fill="url(#statsTex)" class="tex"/>
 <rect x="0.5" y="0.5" width="{W - 1}" height="{H - 1}" rx="14" fill="none" stroke="{t["border"]}"/>
 {_starfield(W, H, count=34, seed=41)}
 {body}
