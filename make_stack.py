@@ -19,7 +19,7 @@ import json
 import os
 import re
 
-from make_card import MONO, THEME, _starfield
+from make_card import MONO, PIXFONT, THEME, _starfield, pixel_font_face, pixel_texture
 
 ICON_CACHE = "assets/icons.json"
 OUT = "assets/tech-stack.svg"
@@ -117,9 +117,9 @@ def render(path=OUT):
         titles.append(
             f'<g class="fade" style="animation-delay:{idx * 28}ms">'
             f'<rect x="{PAD}" y="{y + 1}" width="3" height="11" rx="1.5" fill="{accent}"/>'
-            f'<text x="{PAD + 10}" y="{y + 10.5}" font-family="{MONO}" '
-            f'font-size="{SEC_TITLE_FS}" font-weight="700" fill="{accent}" '
-            f'letter-spacing="0.4">{_esc(title)}</text></g>'
+            f'<text x="{PAD + 10}" y="{y + 10.5}" font-family="{PIXFONT}" '
+            f'font-size="9" fill="{accent}" '
+            f'letter-spacing="0.4">&gt; {_esc(title)}</text></g>'
         )
         idx += 1
         y += 22
@@ -174,9 +174,9 @@ def render(path=OUT):
 
     # Panel title, so the README needs no markdown heading above the image.
     header_svg = (
-        f'<text x="{PAD}" y="{PAD + 19}" font-family="{MONO}" font-size="18" '
-        f'font-weight="700" fill="{t["emerald_light"]}" class="fade" '
-        f'letter-spacing="0.5">{_esc(TITLE)}</text>'
+        f'<text x="{PAD}" y="{PAD + 16}" font-family="{PIXFONT}" font-size="13" '
+        f'fill="{t["emerald_light"]}" class="fade" '
+        f'letter-spacing="0.5">&gt; {_esc(TITLE)}</text>'
         f'<line x1="{PAD}" y1="{PAD + 32}" x2="{W - PAD}" y2="{PAD + 32}" '
         f'stroke="{t["border"]}" stroke-width="1" class="fade"/>'
     )
@@ -193,8 +193,10 @@ def render(path=OUT):
     <stop offset="100%" stop-color="{t["emerald_pale"]}" stop-opacity="0"/>
   </linearGradient>
   <clipPath id="chipShapes">{"".join(clips)}</clipPath>
+  {pixel_texture("stackTex", t["emerald"])}
 </defs>
 <style>
+  {pixel_font_face()}
   .fade {{ opacity:0; animation: sfade .45s ease-out forwards; }}
   @keyframes sfade {{ from {{ opacity:0; }} to {{ opacity:1; }} }}
   .chip {{ opacity:0; animation: chipIn .5s cubic-bezier(.2,.8,.3,1) forwards; }}
@@ -203,12 +205,15 @@ def render(path=OUT):
   /* Matches the card's starfield - _starfield() emits class="star". */
   .star {{ animation: twinkle 4s ease-in-out infinite; }}
   @keyframes twinkle {{ 0%,100% {{ opacity:.15; }} 50% {{ opacity:.7; }} }}
+  .tex {{ animation: texPulse 5s ease-in-out infinite; }}
+  @keyframes texPulse {{ 0%,100% {{ opacity:.6; }} 50% {{ opacity:1; }} }}
   /* Sweep starts after the last chip has landed, then loops. */
   .shine {{ animation: sweep 4.5s ease-in-out {len(clips) * 28 + 500}ms infinite; }}
   @keyframes sweep {{ 0% {{ transform:translateX(-320px); }}
                       55%,100% {{ transform:translateX({W + 320}px); }} }}
 </style>
 <rect width="{W}" height="{H}" rx="14" fill="url(#sbg)"/>
+<rect width="{W}" height="{H}" rx="14" fill="url(#stackTex)" class="tex"/>
 <rect x="0.5" y="0.5" width="{W - 1}" height="{H - 1}" rx="14" fill="none" stroke="{t["border"]}"/>
 {_starfield(W, H, count=40, seed=23)}
 {header_svg}

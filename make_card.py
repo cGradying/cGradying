@@ -11,7 +11,9 @@ JavaScript - so nothing here relies on scripting.
 
 Edit INFO below to change the text block. Edit THEME to restyle.
 """
+import base64
 import datetime
+import functools
 import html
 import json
 import math
@@ -46,17 +48,17 @@ def _uptime(today=None):
 # scraping them back out or clobbering them with stale ones.
 STATS_PATH = "assets/stats.json"
 
-# --- theme: "astra moon" deep space + emerald green -------------------------
+# theme: acid-on-black pixel scene (replaced astra-moon emerald 2026-09) -----
 THEME = {
-    "bg_top": "#0B1120",
-    "bg_bottom": "#0F172A",
-    "panel": "#111A2E",
-    "border": "#1E293B",
-    "emerald": "#10B981",
-    "emerald_light": "#34D399",
-    "emerald_pale": "#6EE7B7",
-    "text": "#C9D1D9",
-    "dim": "#7D8DA1",
+    "bg_top": "#0A0C10",
+    "bg_bottom": "#0A0C10",
+    "panel": "#16241A",
+    "border": "#4F8A2E",
+    "emerald": "#9BE33C",
+    "emerald_light": "#C6F04A",
+    "emerald_pale": "#F2F0C8",
+    "text": "#F2F0C8",
+    "dim": "#4F8A2E",
     "red": "#EF4444",
     "red_light": "#F87171",
 }
@@ -170,6 +172,45 @@ INFO = [
 
 MONO = "ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace"
 
+# Minecraft-style pixel font for headings/big stats. Falls back to MONO if
+# the @font-face somehow fails to load (GitHub's Camo proxy strips nothing
+# here - it's a data: URI, not a fetch).
+PIXFONT = f"'PixelUI', {MONO}"
+_PIXFONT_PATH = os.path.join(os.path.dirname(__file__), "assets", "fonts", "PressStart2P.ttf")
+
+
+@functools.lru_cache(maxsize=1)
+def pixel_font_face():
+    """@font-face block embedding the pixel font as a base64 data URI, so
+    each panel SVG stands alone with no external font fetch."""
+    with open(_PIXFONT_PATH, "rb") as f:
+        b64 = base64.b64encode(f.read()).decode("ascii")
+    return (
+        "@font-face{font-family:'PixelUI';src:url(data:font/ttf;base64,"
+        f"{b64}) format('truetype');font-display:swap;}}"
+    )
+
+
+# 4x4 ordered Bayer matrix - the pixelated-gradient texture behind each
+# panel. Deterministic, no SVG filter (no feTurbulence Safari risk).
+_BAYER4 = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]
+
+
+def pixel_texture(pid, color, tile=4, opacity=0.05):
+    """Bayer-dither <pattern>: faint pixel grid, lighter on the eyes than a
+    full nebula/noise field. `opacity` kept low by default - texture, not
+    decoration fighting the text on top of it."""
+    cells = []
+    for y in range(4):
+        for x in range(4):
+            if _BAYER4[y][x] >= 12:
+                cells.append(f'<rect x="{x}" y="{y}" width="1" height="1" fill="{color}"/>')
+    return (
+        f'<pattern id="{pid}" width="{tile}" height="{tile}" patternUnits="userSpaceOnUse" '
+        f'patternTransform="scale(1)"><g opacity="{opacity}">{"".join(cells)}</g></pattern>'
+    )
+
+
 # Dark to bright. The moon is drawn by picking a character per pixel from this
 # ramp based on how much light that point on the sphere receives.
 RAMP = " .'`:,-~+=*coO08#%@"
@@ -268,8 +309,8 @@ def render(stats, path="assets/card.svg"):
 
     # --- header ---------------------------------------------------------
     body.append(
-        f'<text x="{info_x}" y="60" font-family="{MONO}" font-size="17" '
-        f'font-weight="700" fill="{t["emerald_light"]}" class="fade f{delay}">'
+        f'<text x="{info_x}" y="60" font-family="{PIXFONT}" font-size="14" '
+        f'fill="{t["emerald_light"]}" class="fade f{delay}">'
         f'cGradying<tspan fill="{t["dim"]}">@github</tspan></text>'
     )
     styles.append(f".f{delay}{{animation-delay:{delay * 55}ms}}")
@@ -392,8 +433,8 @@ def render(stats, path="assets/card.svg"):
     # --- stats ----------------------------------------------------------
     y += info_lh * 0.4
     body.append(
-        f'<text x="{info_x}" y="{y:.1f}" font-family="{MONO}" font-size="{info_fs}" '
-        f'font-weight="700" fill="{t["emerald_pale"]}" class="fade f{delay}">'
+        f'<text x="{info_x}" y="{y:.1f}" font-family="{PIXFONT}" font-size="8" '
+        f'fill="{t["emerald_pale"]}" class="fade f{delay}">'
         f'&#9679; GitHub Stats</text>'
     )
     styles.append(f".f{delay}{{animation-delay:{delay * 55}ms}}")
@@ -624,8 +665,10 @@ def render(stats, path="assets/card.svg"):
     <feGaussianBlur stdDeviation="2.2" result="b"/>
     <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
   </filter>
+  {pixel_texture("cardTex", t["emerald"])}
 </defs>
 <style>
+  {pixel_font_face()}
   .fade {{ opacity:0; animation: fade .5s ease-out forwards; }}
   @keyframes fade {{ from {{ opacity:0; transform:translateX(-6px); }}
                      to   {{ opacity:1; transform:translateX(0); }} }}
@@ -637,12 +680,15 @@ def render(stats, path="assets/card.svg"):
                       50% {{ opacity:1; transform:scale(1.06); }} }}
   .star {{ animation: twinkle 4s ease-in-out infinite; }}
   @keyframes twinkle {{ 0%,100% {{ opacity:.15; }} 50% {{ opacity:.7; }} }}
+  .tex {{ animation: texPulse 5s ease-in-out infinite; }}
+  @keyframes texPulse {{ 0%,100% {{ opacity:.6; }} 50% {{ opacity:1; }} }}
 
   {glitch_css}
   {fx_css}
   {" ".join(styles)}
 </style>
 <rect width="{W}" height="{H}" rx="14" fill="url(#bg)"/>
+<rect width="{W}" height="{H}" rx="14" fill="url(#cardTex)" class="tex"/>
 <rect x="0.5" y="0.5" width="{W - 1}" height="{H - 1}" rx="14" fill="none" stroke="{t["border"]}"/>
 {_starfield(W, H)}
 <ellipse cx="190" cy="{H // 2}" rx="185" ry="185" fill="url(#halo)" class="halo"/>
