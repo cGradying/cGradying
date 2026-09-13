@@ -9,13 +9,15 @@
 <img src="assets/card.svg" width="100%" alt="cGradying - Student at Polytechnic University of the Philippines. Building AI-integrated products." />
 
 <!--
-  Generated (assets/tech-stack.svg) - do not hand-edit. Edit STACK in
+  Generated (assets/tech-stack.svg) - do not hand-edit. Edit COLUMNS in
   make_stack.py and run:  python make_stack.py
+  Three cards, each cycling through 3 pre-rendered pages of chips on a shared
+  CSS clock (GitHub strips JS from SVGs, so nothing is swapped in code).
   The panel draws its own "Tech Stack" title, so there is no markdown heading.
   Logos come from Simple Icons and are cached in assets/icons.json.
 -->
 
-<img src="assets/tech-stack.svg" width="100%" alt="Tech stack - Game development: Unity, Unreal, Godot, .NET, Blender, Aseprite, Steamworks. AI/ML: PyTorch, TensorFlow, Keras, scikit-learn, Hugging Face, OpenCV, NumPy, Pandas, Jupyter. Software: Python, C++, Java, TypeScript, Git, Docker, Linux, AWS. Web: React, Next.js, Tailwind, Node.js, FastAPI, PostgreSQL, MongoDB, Vercel." />
+<img src="assets/tech-stack.svg" width="100%" alt="Tech stack - Languages: Swift, Python, TypeScript, JavaScript, C#, C++, Java, Kotlin, Go, Rust, HTML, CSS, SQL, Bash, Lua. Frameworks: SwiftUI, AppKit, WebKit, Next.js, React, Tailwind, FastAPI, PyTorch, Gymnasium, NumPy, OpenCV. Tools and infra: Git, Docker, Linux, Xcode, Postgres, Supabase, Vercel, Ollama, Claude, llama.cpp, Hugging Face." />
 
 <!--
   Generated (assets/github-stats.svg) - do not hand-edit. Replaces the four
