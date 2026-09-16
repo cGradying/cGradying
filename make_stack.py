@@ -93,11 +93,18 @@ INNER_W = COL_W - 2 * CARD_PAD
 
 PAGE_S = 3.2           # seconds a page is held
 STAGGER = 0.45         # seconds each column lags the one to its left
-# Chunky dissolve between pages: discrete opacity levels held with
-# steps(1, end) so the swap reads as a pixel/CRT fade rather than a smooth
-# tween, which would look out of place against the pixel font and texture.
-FADE_LEVELS = (0.18, 0.45, 0.75)
-FADE_PCT = 4.2         # share of the whole cycle each dissolve occupies
+
+# Mosaic-tile wipe: a grid of small squares over each card brightens in a
+# diagonal band that sweeps corner to corner once per page-turn, masking the
+# chip swap underneath (reference: a glowing square-grid gradient). Every
+# tile shares one keyframe shape and is only offset in time by its distance
+# along the diagonal, same trick as the meteor sequence in make_card.py uses
+# IMPACT/M_HIT to drive one wave from one scalar.
+TILE = 16
+WAVE_SPREAD = 1.1      # seconds the band takes to cross a card, corner to corner
+WAVE_HOLD = 0.5        # seconds one tile's brighten-then-dim takes
+TILE_BASE = 0.12       # resting opacity - tiles read as a faint grid, not blank
+TILE_LEVELS = (0.35, 0.65, 1.0)  # brighten steps, then mirrored on the way down
 
 
 def load_icons(slugs):
@@ -134,23 +141,48 @@ def load_icons(slugs):
     return cache
 
 
-def _page_keyframes():
-    """Percentage stops for one page's slot of the shared clock.
-
-    Fades in over FADE_PCT, holds, then fades back out and is fully gone
-    FADE_PCT before its slot ends - so the outgoing page has cleared the
-    coordinates before the next one starts appearing. Two half-transparent
-    pages stacked at identical positions would just read as mush.
+def _tile_keyframes():
+    """Percentage stops for one tile's slot of its own PAGE_S clock: a quick
+    brighten-then-dim near phase 0, flat at TILE_BASE the rest of the way.
+    Every tile shares this shape; only animation-delay differs, so the
+    diagonal offset in mosaic_tiles() is what turns identical tiles into a
+    travelling band rather than a synchronized blink.
     """
-    slot = 100.0 / PAGE_N
-    step = FADE_PCT / len(FADE_LEVELS)
-    stops = [(i * step, v) for i, v in enumerate(FADE_LEVELS)]
-    stops.append((FADE_PCT, 1))
-    out0 = slot - 2 * FADE_PCT
-    assert out0 > FADE_PCT, "fade windows overlap - lower FADE_PCT or raise PAGE_S"
-    stops += [(out0 + i * step, v) for i, v in enumerate(reversed(FADE_LEVELS))]
-    stops += [(slot - FADE_PCT, 0), (100, 0)]
+    hold_pct = WAVE_HOLD / PAGE_S * 100
+    step = hold_pct / (2 * len(TILE_LEVELS))
+    stops = [(0, TILE_BASE)]
+    stops += [((i + 1) * step, v) for i, v in enumerate(TILE_LEVELS)]
+    stops += [((len(TILE_LEVELS) + i) * step, v)
+              for i, v in enumerate(reversed(TILE_LEVELS[:-1]))]
+    stops += [(hold_pct, TILE_BASE), (100, TILE_BASE)]
     return " ".join(f"{p:.4g}%{{opacity:{v:g};}}" for p, v in stops)
+
+
+def mosaic_tiles(cx, card_y, card_h, accent, col_delay):
+    """One card's tile grid: <rect>s covering the card, each delayed by its
+    distance along the diagonal so together they read as one glowing band
+    sweeping corner to corner, once per page-turn (PAGE_S), on loop. Built
+    once per card, not once per page - the wave shape doesn't depend on
+    which page is underneath it. `col_delay` staggers card against card.
+
+    CSS animation-delay does not cascade from parent to child, so each
+    tile carries its own full offset rather than nesting under a delayed
+    wrapper group.
+    """
+    cols = -(-round(COL_W) // TILE)  # ceil
+    rows = -(-card_h // TILE)
+    span = cols + rows - 2 or 1
+    out = []
+    for j in range(rows):
+        for i in range(cols):
+            d = (i + j) / span  # 0 at top-left corner, 1 at bottom-right
+            delay = col_delay - d * WAVE_SPREAD
+            out.append(
+                f'<rect class="tile" style="animation-delay:{delay:.3f}s" '
+                f'x="{cx + i * TILE:.1f}" y="{card_y + j * TILE:.1f}" '
+                f'width="{TILE - 1}" height="{TILE - 1}" fill="{accent}"/>'
+            )
+    return "".join(out)
 
 
 def chip_width(label, has_icon):
@@ -208,7 +240,7 @@ def render(path=OUT):
     card_y = PAD + HEADER_H
     H = card_y + card_h + PAD
 
-    cards, sweeps, clips, n_chips = [], [], [], 0
+    cards, mosaics, clips, n_chips = [], [], [], 0
 
     for c, (title, accent_key, pages) in enumerate(COLUMNS):
         accent = t[accent_key]
@@ -262,14 +294,12 @@ def render(path=OUT):
 
         cards.append(f'<g class="fade" style="animation-delay:{c * 90}ms">{"".join(body)}</g>')
 
-        # One holo sweep per card, clipped to that card. The skew lives on a
-        # wrapper <g>: a CSS `transform` replaces the SVG transform attribute
-        # outright, so animating translateX on the rect would drop the skew.
-        sweeps.append(
-            f'<g clip-path="url(#cc{c})"><g transform="skewX(-18)">'
-            f'<rect class="shine" style="animation-delay:{1.1 + c * STAGGER:.2f}s" '
-            f'x="{cx - 220:.1f}" y="{card_y}" width="120" height="{card_h}" '
-            f'fill="url(#shine)"/></g></g>'
+        # Mosaic-tile wipe, clipped to this card, offset by the column
+        # stagger so the three cards' waves sweep in sequence rather than
+        # in lockstep.
+        mosaics.append(
+            f'<g clip-path="url(#cc{c})">'
+            f'{mosaic_tiles(cx, card_y, card_h, accent, -c * STAGGER)}</g>'
         )
 
     # Panel title, so the README needs no markdown heading above the image.
@@ -293,11 +323,6 @@ def render(path=OUT):
     <stop offset="0%" stop-color="{t["bg_top"]}"/>
     <stop offset="100%" stop-color="{t["bg_bottom"]}"/>
   </linearGradient>
-  <linearGradient id="shine" x1="0" y1="0" x2="1" y2="0">
-    <stop offset="0%"   stop-color="{t["emerald_pale"]}" stop-opacity="0"/>
-    <stop offset="50%"  stop-color="{t["emerald_pale"]}" stop-opacity="0.35"/>
-    <stop offset="100%" stop-color="{t["emerald_pale"]}" stop-opacity="0"/>
-  </linearGradient>
   {"".join(clips)}
   {pixel_texture("stackTex", t["emerald"])}
 </defs>
@@ -311,14 +336,17 @@ def render(path=OUT):
   .tex {{ animation: texPulse 5s ease-in-out infinite; }}
   @keyframes texPulse {{ 0%,100% {{ opacity:.6; }} 50% {{ opacity:1; }} }}
   /* Page swap: all {PAGE_N} pages sit at the same coordinates, one visible per
-     slot of the shared clock. steps(1,end) holds each opacity level, so the
-     dissolve lands in discrete steps like a pixel fade. The outgoing page
-     finishes before the next starts, so two pages are never both on screen. */
+     slot of the shared clock, hard cut with steps(1,end) - the mosaic wave
+     below is what visually covers the instant of the swap. */
   .pg {{ opacity:0; animation: pgTurn {PAGE_N * PAGE_S:g}s steps(1,end) infinite; }}
-  @keyframes pgTurn {{ {_page_keyframes()} }}
-  .shine {{ animation: sweep {PAGE_N * PAGE_S:g}s ease-in-out infinite; }}
-  @keyframes sweep {{ 0% {{ transform:translateX(0); }}
-                      45%,100% {{ transform:translateX({COL_W + 340:.0f}px); }} }}
+  @keyframes pgTurn {{ 0% {{ opacity:1; }}
+                       {100 / PAGE_N:.4f}%,100% {{ opacity:0; }} }}
+  /* Mosaic-tile wipe: every tile runs the identical brighten/dim shape, only
+     animation-delay differs (set per tile in mosaic_tiles()), so the shared
+     keyframes plus a diagonal spread of delays is what turns a static grid
+     into one glowing band sweeping corner to corner every page-turn. */
+  .tile {{ opacity:{TILE_BASE:g}; animation: tileWave {PAGE_S:g}s steps(1,end) infinite; }}
+  @keyframes tileWave {{ {_tile_keyframes()} }}
 </style>
 <rect width="{W}" height="{H}" rx="14" fill="url(#sbg)"/>
 <rect width="{W}" height="{H}" rx="14" fill="url(#stackTex)" class="tex"/>
@@ -326,7 +354,7 @@ def render(path=OUT):
 {_starfield(W, H, count=40, seed=23)}
 {header_svg}
 {"".join(cards)}
-{"".join(sweeps)}
+{"".join(mosaics)}
 </svg>
 '''
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
@@ -368,6 +396,13 @@ def demo():
         assert any(lo + CARD_PAD - 0.5 <= x and x + cw <= hi - CARD_PAD + 0.5
                    for lo, hi in bounds), f"chip outside its column: x={x}"
         assert y + CHIP_H <= h, f"chip overflows bottom: y={y}"
+
+    # Tiles overhanging a card's right/bottom edge are expected (grid width is
+    # rounded up to a whole number of tiles) - the per-card clip-path is what
+    # actually contains them, so just confirm every mosaic group is clipped
+    # and something was drawn.
+    assert svg.count('<g clip-path="url(#cc') == len(COLUMNS), "mosaic group missing its clip"
+    assert svg.count('class="tile"') > 0, "no mosaic tiles rendered"
 
     before = svg
     render(p)
