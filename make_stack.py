@@ -105,6 +105,19 @@ WAVE_SPREAD = 1.1      # seconds the band takes to cross a card, corner to corne
 WAVE_HOLD = 0.5        # seconds one tile's brighten-then-dim takes
 TILE_BASE = 0.12       # resting opacity - tiles read as a faint grid, not blank
 TILE_LEVELS = (0.35, 0.65, 1.0)  # brighten steps, then mirrored on the way down
+WAVE_CENTER = 0.5       # 0-1: which point along the diagonal lands on the
+                        # page-swap instant. 0.5 = the band straddles the
+                        # swap symmetrically. Raise toward 1 to cover more of
+                        # the swap *after* it happens, lower toward 0 to cover
+                        # more *before*. Main knob for feel - tune this first.
+
+# Where in its own PAGE_S cycle a tile hits full opacity (see _tile_keyframes
+# below) - computed once here so the delay math in mosaic_tiles() reads the
+# same number instead of a second, independently-drifting copy of it.
+_N = len(TILE_LEVELS)
+_HOLD_PCT = WAVE_HOLD / PAGE_S * 100
+_STEP_PCT = _HOLD_PCT / (2 * _N)
+PEAK_FRAC = (_N * _STEP_PCT) / 100
 
 
 def load_icons(slugs):
@@ -148,44 +161,49 @@ def _tile_keyframes():
     diagonal offset in mosaic_tiles() is what turns identical tiles into a
     travelling band rather than a synchronized blink.
     """
-    hold_pct = WAVE_HOLD / PAGE_S * 100
-    n = len(TILE_LEVELS)
-    step = hold_pct / (2 * n)
     stops = [(0, TILE_BASE)]
-    stops += [((i + 1) * step, v) for i, v in enumerate(TILE_LEVELS)]        # rise to peak at n*step
-    stops += [((n + 1 + i) * step, v)                                       # fall, starting *after* the peak
+    stops += [((i + 1) * _STEP_PCT, v) for i, v in enumerate(TILE_LEVELS)]        # rise to peak at _N*_STEP_PCT
+    stops += [((_N + 1 + i) * _STEP_PCT, v)                                      # fall, starting *after* the peak
               for i, v in enumerate(reversed(TILE_LEVELS[:-1]))]
-    stops += [(hold_pct, TILE_BASE), (100, TILE_BASE)]
+    stops += [(_HOLD_PCT, TILE_BASE), (100, TILE_BASE)]
     return " ".join(f"{p:.4g}%{{opacity:{v:g};}}" for p, v in stops)
 
 
-def _tile_grid(card_h):
-    """(i, j, diagonal-progress) for every tile position. Every card is the
-    same size (card_h is the max over all pages/columns), so this is
-    computed once and reused per card rather than 3x per render."""
+def _tile_grid(content_h):
+    """(i, j, diagonal-progress) for every tile position, covering only the
+    chip-stack area (content_h = card_h - CARD_TOP), not the title/page-name/
+    dot row above it - that header is static and shouldn't flicker. Every
+    card's content area is the same size, so this is computed once and
+    reused per card rather than 3x per render."""
     cols = -(-round(COL_W) // TILE)  # ceil
-    rows = -(-card_h // TILE)
+    rows = -(-content_h // TILE)
     span = cols + rows - 2 or 1
     return [(i, j, (i + j) / span)  # 0 at top-left corner, 1 at bottom-right
             for j in range(rows) for i in range(cols)]
 
 
-def mosaic_tiles(cx, card_y, grid, col_delay):
-    """One card's tile grid: <rect>s covering the card, each delayed by its
-    diagonal distance so together they read as one glowing band sweeping
-    corner to corner, once per page-turn (PAGE_S), on loop. Built once per
-    card, not once per page - the wave shape doesn't depend on which page is
-    underneath it. `col_delay` staggers card against card. Fill is not set
-    here - the caller wraps the whole grid in `<g fill="...">` since every
-    tile in a card shares one accent colour.
+def mosaic_tiles(cx, content_y, grid, col_delay):
+    """One card's tile grid: <rect>s covering its chip-stack area, each
+    delayed so together they read as one glowing band sweeping corner to
+    corner, once per page-turn (PAGE_S), on loop. Built once per card, not
+    once per page - the wave shape doesn't depend on which page is
+    underneath it. Fill is not set here - the caller wraps the whole grid in
+    `<g fill="...">` since every tile in a card shares one accent colour.
+
+    Delay is solved so tile `d` peaks at real time
+    `col_delay + (d - WAVE_CENTER) * WAVE_SPREAD` (mod PAGE_S) - i.e. the
+    WAVE_CENTER point along the diagonal lands exactly on the page-swap
+    instant (`col_delay` here is `-c * STAGGER`, the same offset `.pg` swaps
+    on), rather than the wave arriving after the swap already happened.
 
     CSS animation-delay does not cascade from parent to child, so each
     tile still carries its own full delay rather than nesting under a
     delayed wrapper group.
     """
     return "".join(
-        f'<rect class="tile" style="animation-delay:{col_delay - d * WAVE_SPREAD:.3f}s" '
-        f'x="{cx + i * TILE:.1f}" y="{card_y + j * TILE:.1f}" '
+        f'<rect class="tile" style="animation-delay:'
+        f'{col_delay + (d - WAVE_CENTER) * WAVE_SPREAD - PEAK_FRAC * PAGE_S:.3f}s" '
+        f'x="{cx + i * TILE:.1f}" y="{content_y + j * TILE:.1f}" '
         f'width="{TILE - 1}" height="{TILE - 1}"/>'
         for i, j, d in grid
     )
@@ -245,7 +263,8 @@ def render(path=OUT):
     card_h = round(CARD_TOP + max_rows * (CHIP_H + ROW_GAP) - ROW_GAP + CARD_PAD)
     card_y = PAD + HEADER_H
     H = card_y + card_h + PAD
-    tile_grid = _tile_grid(card_h)  # every card is card_h tall - one grid, reused per card
+    # Mosaic wave only covers the chip-stack area, not the header row above it.
+    tile_grid = _tile_grid(card_h - CARD_TOP)
 
     cards, mosaics, clips, n_chips = [], [], [], 0
 
@@ -303,10 +322,10 @@ def render(path=OUT):
 
         # Mosaic-tile wipe, clipped to this card, offset by the column
         # stagger so the three cards' waves sweep in sequence rather than
-        # in lockstep.
+        # in lockstep. Starts below CARD_TOP so it never touches the title.
         mosaics.append(
             f'<g clip-path="url(#cc{c})" fill="{accent}">'
-            f'{mosaic_tiles(cx, card_y, tile_grid, -c * STAGGER)}</g>'
+            f'{mosaic_tiles(cx, card_y + CARD_TOP, tile_grid, -c * STAGGER)}</g>'
         )
 
     # Panel title, so the README needs no markdown heading above the image.
