@@ -149,40 +149,46 @@ def _tile_keyframes():
     travelling band rather than a synchronized blink.
     """
     hold_pct = WAVE_HOLD / PAGE_S * 100
-    step = hold_pct / (2 * len(TILE_LEVELS))
+    n = len(TILE_LEVELS)
+    step = hold_pct / (2 * n)
     stops = [(0, TILE_BASE)]
-    stops += [((i + 1) * step, v) for i, v in enumerate(TILE_LEVELS)]
-    stops += [((len(TILE_LEVELS) + i) * step, v)
+    stops += [((i + 1) * step, v) for i, v in enumerate(TILE_LEVELS)]        # rise to peak at n*step
+    stops += [((n + 1 + i) * step, v)                                       # fall, starting *after* the peak
               for i, v in enumerate(reversed(TILE_LEVELS[:-1]))]
     stops += [(hold_pct, TILE_BASE), (100, TILE_BASE)]
     return " ".join(f"{p:.4g}%{{opacity:{v:g};}}" for p, v in stops)
 
 
-def mosaic_tiles(cx, card_y, card_h, accent, col_delay):
-    """One card's tile grid: <rect>s covering the card, each delayed by its
-    distance along the diagonal so together they read as one glowing band
-    sweeping corner to corner, once per page-turn (PAGE_S), on loop. Built
-    once per card, not once per page - the wave shape doesn't depend on
-    which page is underneath it. `col_delay` staggers card against card.
-
-    CSS animation-delay does not cascade from parent to child, so each
-    tile carries its own full offset rather than nesting under a delayed
-    wrapper group.
-    """
+def _tile_grid(card_h):
+    """(i, j, diagonal-progress) for every tile position. Every card is the
+    same size (card_h is the max over all pages/columns), so this is
+    computed once and reused per card rather than 3x per render."""
     cols = -(-round(COL_W) // TILE)  # ceil
     rows = -(-card_h // TILE)
     span = cols + rows - 2 or 1
-    out = []
-    for j in range(rows):
-        for i in range(cols):
-            d = (i + j) / span  # 0 at top-left corner, 1 at bottom-right
-            delay = col_delay - d * WAVE_SPREAD
-            out.append(
-                f'<rect class="tile" style="animation-delay:{delay:.3f}s" '
-                f'x="{cx + i * TILE:.1f}" y="{card_y + j * TILE:.1f}" '
-                f'width="{TILE - 1}" height="{TILE - 1}" fill="{accent}"/>'
-            )
-    return "".join(out)
+    return [(i, j, (i + j) / span)  # 0 at top-left corner, 1 at bottom-right
+            for j in range(rows) for i in range(cols)]
+
+
+def mosaic_tiles(cx, card_y, grid, col_delay):
+    """One card's tile grid: <rect>s covering the card, each delayed by its
+    diagonal distance so together they read as one glowing band sweeping
+    corner to corner, once per page-turn (PAGE_S), on loop. Built once per
+    card, not once per page - the wave shape doesn't depend on which page is
+    underneath it. `col_delay` staggers card against card. Fill is not set
+    here - the caller wraps the whole grid in `<g fill="...">` since every
+    tile in a card shares one accent colour.
+
+    CSS animation-delay does not cascade from parent to child, so each
+    tile still carries its own full delay rather than nesting under a
+    delayed wrapper group.
+    """
+    return "".join(
+        f'<rect class="tile" style="animation-delay:{col_delay - d * WAVE_SPREAD:.3f}s" '
+        f'x="{cx + i * TILE:.1f}" y="{card_y + j * TILE:.1f}" '
+        f'width="{TILE - 1}" height="{TILE - 1}"/>'
+        for i, j, d in grid
+    )
 
 
 def chip_width(label, has_icon):
@@ -239,6 +245,7 @@ def render(path=OUT):
     card_h = round(CARD_TOP + max_rows * (CHIP_H + ROW_GAP) - ROW_GAP + CARD_PAD)
     card_y = PAD + HEADER_H
     H = card_y + card_h + PAD
+    tile_grid = _tile_grid(card_h)  # every card is card_h tall - one grid, reused per card
 
     cards, mosaics, clips, n_chips = [], [], [], 0
 
@@ -298,8 +305,8 @@ def render(path=OUT):
         # stagger so the three cards' waves sweep in sequence rather than
         # in lockstep.
         mosaics.append(
-            f'<g clip-path="url(#cc{c})">'
-            f'{mosaic_tiles(cx, card_y, card_h, accent, -c * STAGGER)}</g>'
+            f'<g clip-path="url(#cc{c})" fill="{accent}">'
+            f'{mosaic_tiles(cx, card_y, tile_grid, -c * STAGGER)}</g>'
         )
 
     # Panel title, so the README needs no markdown heading above the image.
