@@ -1,15 +1,19 @@
 #!/usr/bin/env python3
 """
-Renders assets/tech-stack.svg - the animated tech-stack panel in README.md.
+Renders assets/tech-stack.svg - the tech-stack panel in README.md.
 
-Three side-by-side cards (Languages / Frameworks / Tools & Infra). Each card
-cycles through PAGE_N pre-rendered pages of chips, like a trading card flipping
-between its move sets, and a holo sweep crosses the cards in sequence.
+One seamless panel (same shape as make_card.py/make_stats.py - starfield,
+pixel texture, single rounded border), not a row of individually-boxed mini
+cards. Three columns of content separated by a thin rule, each tech drawn as
+a small pixel "item slot" (icon centered, label underneath) rather than a
+variable-width text pill - reads as a retro game inventory grid, on-theme
+with the PressStart2P headings used everywhere else.
 
-GitHub strips <script> from embedded SVGs but keeps CSS, so the pages are not
-swapped in code: all PAGE_N are stacked at the same coordinates and switched by
-an `opacity` keyframe on a shared clock with steps(1, end) so they snap rather
-than cross-fade. Same trick as MULTI_N in make_card.py.
+Earlier versions of this file rotated pages of chips behind a mosaic-tile
+wipe timed to the page swap. Three rounds of sync tuning later, the fix was
+to remove the thing that needed syncing: every chip is shown at once now, and
+the only motion left is a tiny reused twinkle flourish next to each header -
+decorative, not load-bearing, nothing to keep in phase with anything else.
 
 Icon paths are cached in assets/icons.json, so this only needs network access
 the first time a new slug is added. Edit COLUMNS below to change the contents.
@@ -26,52 +30,31 @@ ICON_CACHE = "assets/icons.json"
 OUT = "assets/tech-stack.svg"
 CDN = "https://cdn.jsdelivr.net/npm/simple-icons@13/icons/{slug}.svg"
 
-PAGE_N = 3  # every column must have exactly this many pages - they share one clock
-
-# (column title, accent colour key, [(page name, [(label, simple-icons slug), ...]), ...])
-# Page 0 is what a reader sees first, so the headline tech lives there.
+# (column title, accent colour key, [(label, simple-icons slug), ...])
 COLUMNS = [
     ("Languages", "emerald_light", [
-        ("shipping", [
-            ("Swift", "swift"), ("Python", "python"), ("TypeScript", "typescript"),
-            ("JavaScript", "javascript"),
-        ]),
-        ("systems", [
-            # simple-icons@13 has no "csharp" slug - .NET is the closest mark.
-            ("C#", "dotnet"), ("C++", "cplusplus"), ("Java", "openjdk"),
-            ("Kotlin", "kotlin"), ("Go", "go"), ("Rust", "rust"),
-        ]),
-        ("markup / query / shell", [
-            ("HTML", "html5"), ("CSS", "css3"), ("SQL", "mysql"),
-            ("Bash", "gnubash"), ("Lua", "lua"),
-        ]),
+        ("Swift", "swift"), ("Python", "python"), ("TypeScript", "typescript"),
+        ("JavaScript", "javascript"),
+        # simple-icons@13 has no "csharp" slug - .NET is the closest mark.
+        ("C#", "dotnet"), ("C++", "cplusplus"), ("Java", "openjdk"),
+        ("Kotlin", "kotlin"), ("Go", "go"), ("Rust", "rust"),
+        ("HTML", "html5"), ("CSS", "css3"), ("SQL", "mysql"),
+        ("Bash", "gnubash"), ("Lua", "lua"),
     ]),
     ("Frameworks", "emerald", [
-        ("native", [
-            ("SwiftUI", "swift"), ("AppKit", "apple"), ("WebKit", "safari"),
-        ]),
-        ("web", [
-            ("Next.js", "nextdotjs"), ("React", "react"),
-            ("Tailwind", "tailwindcss"), ("FastAPI", "fastapi"),
-        ]),
-        ("ai / ml", [
-            ("PyTorch", "pytorch"), ("Gymnasium", "openaigym"),
-            ("NumPy", "numpy"), ("OpenCV", "opencv"),
-        ]),
+        ("SwiftUI", "swift"), ("AppKit", "apple"), ("WebKit", "safari"),
+        ("Next.js", "nextdotjs"), ("React", "react"),
+        ("Tailwind", "tailwindcss"), ("FastAPI", "fastapi"),
+        ("PyTorch", "pytorch"), ("Gymnasium", "openaigym"),
+        ("NumPy", "numpy"), ("OpenCV", "opencv"),
     ]),
     ("Tools & Infra", "emerald_pale", [
-        ("daily", [
-            ("Git", "git"), ("Docker", "docker"), ("Linux", "linux"),
-            ("Xcode", "xcode"),
-        ]),
-        ("hosting", [
-            ("Postgres", "postgresql"), ("Supabase", "supabase"),
-            ("Vercel", "vercel"),
-        ]),
-        ("models", [
-            ("Ollama", "ollama"), ("Claude", "claude"),
-            ("llama.cpp", "meta"), ("Hugging Face", "huggingface"),
-        ]),
+        ("Git", "git"), ("Docker", "docker"), ("Linux", "linux"),
+        ("Xcode", "xcode"),
+        ("Postgres", "postgresql"), ("Supabase", "supabase"),
+        ("Vercel", "vercel"),
+        ("Ollama", "ollama"), ("Claude", "claude"),
+        ("llama.cpp", "meta"), ("Hugging Face", "huggingface"),
     ]),
 ]
 
@@ -79,52 +62,14 @@ W = 940
 PAD = 22
 GUT = 14
 TITLE = "Tech Stack"
-HEADER_H = 48          # room for the panel title + rule above the cards
-CARD_PAD = 12
-CARD_TOP = 46          # card padding-top -> first chip row (clears title + page name)
-CHIP_H = 28
-CHIP_GAP = 7
-ROW_GAP = 7
-ICON = 13
-FS = 11.0
-CHAR_W = FS * 0.60     # monospace advance width, so chip widths are exact
+HEADER_H = 48          # room for the panel title + rule above the columns
+COL_HEADER_H = 26      # column title row -> first slot row
 COL_W = round((W - 2 * PAD - 2 * GUT) / 3, 1)
-INNER_W = COL_W - 2 * CARD_PAD
 
-PAGE_S = 3.2           # seconds a page is held
-STAGGER = 0.45         # seconds each column lags the one to its left
-
-# Mosaic-tile wipe: a grid of small squares over each card brightens in a
-# diagonal band that sweeps corner to corner once per page-turn, masking the
-# chip swap underneath (reference: a glowing square-grid gradient). Every
-# tile shares one keyframe shape and is only offset in time by its distance
-# along the diagonal, same trick as the meteor sequence in make_card.py uses
-# IMPACT/M_HIT to drive one wave from one scalar.
-TILE = 16
-WAVE_SPREAD = 1.0      # seconds the band takes to cross a card, corner to corner
-# WAVE_HOLD > WAVE_SPREAD is the invariant that makes the wave read as one
-# connected sheet instead of a thin stripe drifting past: it's how long ONE
-# tile stays lit, so if it's shorter than the time the band takes to cross,
-# no single moment ever has the whole diagonal lit at once - every tile is
-# lighting up or dimming alone, nothing ever looks joined together. The
-# overlap (WAVE_HOLD - WAVE_SPREAD) is the window where every tile from
-# corner to corner is lit simultaneously - checked in demo().
-WAVE_HOLD = 1.6
-TILE_BASE = 0.12       # resting opacity - tiles read as a faint grid, not blank
-TILE_LEVELS = (0.35, 0.65, 1.0)  # brighten steps, then mirrored on the way down
-WAVE_CENTER = 0.5       # 0-1: which point along the diagonal lands on the
-                        # page-swap instant. 0.5 = the band straddles the
-                        # swap symmetrically. Raise toward 1 to cover more of
-                        # the swap *after* it happens, lower toward 0 to cover
-                        # more *before*. Main knob for feel - tune this first.
-
-# Where in its own PAGE_S cycle a tile hits full opacity (see _tile_keyframes
-# below) - computed once here so the delay math in mosaic_tiles() reads the
-# same number instead of a second, independently-drifting copy of it.
-_N = len(TILE_LEVELS)
-_HOLD_PCT = WAVE_HOLD / PAGE_S * 100
-_STEP_PCT = _HOLD_PCT / (2 * _N)
-PEAK_FRAC = (_N * _STEP_PCT) / 100
+SLOT = 48               # item-slot cell, square
+SLOT_GAP = 8
+ICON = 18
+FS_LABEL = 7.0           # small - a caption under the icon, not body text
 
 
 def load_icons(slugs):
@@ -151,7 +96,7 @@ def load_icons(slugs):
                 cache[slug] = m.group(1)
                 print(f"fetched {slug}")
             except Exception as e:
-                # A missing logo degrades to a text-only chip rather than
+                # A missing logo degrades to a text-only slot rather than
                 # failing the whole render.
                 print(f"WARNING: could not fetch '{slug}': {e}")
                 cache[slug] = ""
@@ -161,179 +106,88 @@ def load_icons(slugs):
     return cache
 
 
-def _tile_keyframes():
-    """Percentage stops for one tile's slot of its own PAGE_S clock: a quick
-    brighten-then-dim near phase 0, flat at TILE_BASE the rest of the way.
-    Every tile shares this shape; only animation-delay differs, so the
-    diagonal offset in mosaic_tiles() is what turns identical tiles into a
-    travelling band rather than a synchronized blink.
-    """
-    stops = [(0, TILE_BASE)]
-    stops += [((i + 1) * _STEP_PCT, v) for i, v in enumerate(TILE_LEVELS)]        # rise to peak at _N*_STEP_PCT
-    stops += [((_N + 1 + i) * _STEP_PCT, v)                                      # fall, starting *after* the peak
-              for i, v in enumerate(reversed(TILE_LEVELS[:-1]))]
-    stops += [(_HOLD_PCT, TILE_BASE), (100, TILE_BASE)]
-    return " ".join(f"{p:.4g}%{{opacity:{v:g};}}" for p, v in stops)
+def slot_grid(items):
+    """Fixed-width rows: how many SLOT-sized cells fit COL_W, items wrapped
+    that many per row. Simpler than measuring text (today's chips had to
+    size themselves to their label) since every slot is the same size."""
+    cols_per_row = max(1, int((COL_W + SLOT_GAP) // (SLOT + SLOT_GAP)))
+    rows = [items[i:i + cols_per_row] for i in range(0, len(items), cols_per_row)]
+    return rows, cols_per_row
 
 
-def _tile_grid(content_h):
-    """(i, j, diagonal-progress) for every tile position, covering only the
-    chip-stack area (content_h = card_h - CARD_TOP), not the title/page-name/
-    dot row above it - that header is static and shouldn't flicker. Every
-    card's content area is the same size, so this is computed once and
-    reused per card rather than 3x per render."""
-    cols = -(-round(COL_W) // TILE)  # ceil
-    rows = -(-content_h // TILE)
-    span = cols + rows - 2 or 1
-    return [(i, j, (i + j) / span)  # 0 at top-left corner, 1 at bottom-right
-            for j in range(rows) for i in range(cols)]
-
-
-def mosaic_tiles(cx, content_y, grid, col_delay):
-    """One card's tile grid: <rect>s covering its chip-stack area, each
-    delayed so together they read as one glowing band sweeping corner to
-    corner, once per page-turn (PAGE_S), on loop. Built once per card, not
-    once per page - the wave shape doesn't depend on which page is
-    underneath it. Fill is not set here - the caller wraps the whole grid in
-    `<g fill="...">` since every tile in a card shares one accent colour.
-
-    Delay is solved so tile `d` peaks at real time
-    `col_delay + (d - WAVE_CENTER) * WAVE_SPREAD` (mod PAGE_S) - i.e. the
-    WAVE_CENTER point along the diagonal lands exactly on the page-swap
-    instant (`col_delay` here is `-c * STAGGER`, the same offset `.pg` swaps
-    on), rather than the wave arriving after the swap already happened.
-
-    CSS animation-delay does not cascade from parent to child, so each
-    tile still carries its own full delay rather than nesting under a
-    delayed wrapper group.
-    """
-    return "".join(
-        f'<rect class="tile" style="animation-delay:'
-        f'{col_delay + (d - WAVE_CENTER) * WAVE_SPREAD - PEAK_FRAC * PAGE_S:.3f}s" '
-        f'x="{cx + i * TILE:.1f}" y="{content_y + j * TILE:.1f}" '
-        f'width="{TILE - 1}" height="{TILE - 1}"/>'
-        for i, j, d in grid
-    )
-
-
-def chip_width(label, has_icon):
-    inner = len(label) * CHAR_W
-    if has_icon:
-        inner += ICON + 6
-    return round(inner + 20, 1)
-
-
-def wrap_page(items, icons):
-    """Greedy-wrap one page's chips into rows that fit INNER_W."""
-    rows, cur, used = [], [], 0.0
-    for label, slug in items:
-        w = chip_width(label, bool(icons.get(slug)))
-        if cur and used + CHIP_GAP + w > INNER_W:
-            rows.append(cur)
-            cur, used = [], 0.0
-        used += w + (CHIP_GAP if cur else 0)
-        cur.append((label, slug, w))
-    if cur:
-        rows.append(cur)
-    return rows
-
-
-def _chip(x, y, label, d, accent, t):
+def _slot(x, y, label, d, accent, t):
     parts = [
-        f'<rect x="{x:.1f}" y="{y:.1f}" width="{chip_width(label, bool(d)):.1f}" '
-        f'height="{CHIP_H}" rx="7" fill="{t["panel"]}" stroke="{t["border"]}"/>'
+        f'<rect x="{x:.1f}" y="{y:.1f}" width="{SLOT}" height="{SLOT}" rx="4" '
+        f'fill="{t["panel"]}" stroke="{t["border"]}"/>'
     ]
-    tx = x + 10
+    cx = x + SLOT / 2
     if d:
         # Simple Icons use a 24x24 viewBox; scale it down in place.
         s = ICON / 24
         parts.append(
-            f'<g transform="translate({x + 10:.1f} {y + (CHIP_H - ICON) / 2:.1f}) '
+            f'<g transform="translate({x + (SLOT - ICON) / 2:.1f} {y + 7:.1f}) '
             f'scale({s:.4f})"><path d="{d}" fill="{accent}"/></g>'
         )
-        tx += ICON + 6
+        label_y = y + SLOT - 8
+    else:
+        label_y = y + SLOT / 2 + 3  # no icon - centre the label in the slot
     parts.append(
-        f'<text x="{tx:.1f}" y="{y + CHIP_H / 2 + 3.9:.1f}" font-family="{MONO}" '
-        f'font-size="{FS}" fill="{t["text"]}">{_esc(label)}</text>'
+        f'<text x="{cx:.1f}" y="{label_y:.1f}" font-family="{MONO}" '
+        f'font-size="{FS_LABEL}" fill="{t["text"]}" text-anchor="middle">'
+        f'{_esc(label)}</text>'
     )
     return "".join(parts)
 
 
 def render(path=OUT):
     t = THEME
-    icons = load_icons([s for _, _, pages in COLUMNS for _, items in pages for _, s in items])
+    icons = load_icons([s for _, _, items in COLUMNS for _, s in items])
 
-    # Every card is as tall as the tallest page anywhere, so swapping pages
-    # never resizes the panel and the three cards stay aligned.
-    wrapped = [[wrap_page(items, icons) for _, items in pages] for _, _, pages in COLUMNS]
-    max_rows = max(len(rows) for col in wrapped for rows in col)
-    card_h = round(CARD_TOP + max_rows * (CHIP_H + ROW_GAP) - ROW_GAP + CARD_PAD)
-    card_y = PAD + HEADER_H
-    H = card_y + card_h + PAD
-    # Mosaic wave only covers the chip-stack area, not the header row above it.
-    tile_grid = _tile_grid(card_h - CARD_TOP)
+    grids = [slot_grid(items) for _, _, items in COLUMNS]
+    max_rows = max(len(rows) for rows, _ in grids)
+    content_h = max_rows * (SLOT + SLOT_GAP) - SLOT_GAP
+    col_y = PAD + HEADER_H + COL_HEADER_H
+    H = col_y + content_h + PAD
 
-    cards, mosaics, clips, n_chips = [], [], [], 0
+    body, n_slots = [], 0
 
-    for c, (title, accent_key, pages) in enumerate(COLUMNS):
+    for c, ((title, accent_key, items), (rows, _)) in enumerate(zip(COLUMNS, grids)):
         accent = t[accent_key]
         cx = PAD + c * (COL_W + GUT)
-        clips.append(
-            f'<clipPath id="cc{c}"><rect x="{cx:.1f}" y="{card_y}" '
-            f'width="{COL_W:.1f}" height="{card_h}" rx="10"/></clipPath>'
-        )
+        hy = PAD + HEADER_H
 
-        body = [
-            f'<rect x="{cx:.1f}" y="{card_y}" width="{COL_W:.1f}" height="{card_h}" '
-            f'rx="10" fill="{t["bg_top"]}" stroke="{t["border"]}"/>',
-            f'<rect x="{cx + CARD_PAD:.1f}" y="{card_y + CARD_PAD + 1}" width="3" '
-            f'height="11" rx="1.5" fill="{accent}"/>',
-            f'<text x="{cx + CARD_PAD + 10:.1f}" y="{card_y + CARD_PAD + 10.5}" '
-            f'font-family="{PIXFONT}" font-size="9" fill="{accent}" '
-            f'letter-spacing="0.4">&gt; {_esc(title)}</text>',
+        col = [
+            f'<rect x="{cx:.1f}" y="{hy + 1}" width="3" height="11" rx="1.5" fill="{accent}"/>',
+            f'<text x="{cx + 10:.1f}" y="{hy + 10.5}" font-family="{PIXFONT}" '
+            f'font-size="9" fill="{accent}" letter-spacing="0.4">&gt; {_esc(title)}</text>',
+        ]
+        # Tiny flourish, right-aligned in the column: reuses the exact
+        # .star/twinkle rule _starfield() already defines - no new keyframes,
+        # nothing timed against anything else.
+        fx = cx + COL_W - 3 * 7
+        col += [
+            f'<rect class="star" style="animation-delay:{i * 220}ms" '
+            f'x="{fx + i * 7:.1f}" y="{hy + 2:.1f}" width="3" height="3" fill="{accent}"/>'
+            for i in range(3)
         ]
 
-        for k, ((page_name, _), rows) in enumerate(zip(pages, wrapped[c])):
-            # Negative delay so all pages share one keyframe and start
-            # mid-clock; the column stagger rides on the same offset.
-            delay = -(k * PAGE_S + c * STAGGER)
-            page = [f'<g class="pg" style="animation-delay:{delay:.2f}s">']
+        y = col_y
+        for row in rows:
+            x = cx
+            for label, slug in row:
+                col.append(_slot(x, y, label, icons.get(slug, ""), accent, t))
+                x += SLOT + SLOT_GAP
+                n_slots += 1
+            y += SLOT + SLOT_GAP
 
-            page.append(
-                f'<text x="{cx + CARD_PAD:.1f}" y="{card_y + CARD_PAD + 25}" '
-                f'font-family="{MONO}" font-size="9" fill="{t["dim"]}">'
-                f'{_esc(page_name)}</text>'
-            )
-            # Page dots, pokemon-card style: the active one is this page's.
-            for j in range(PAGE_N):
-                fill = accent if j == k else t["border"]
-                page.append(
-                    f'<circle cx="{cx + COL_W - CARD_PAD - (PAGE_N - 1 - j) * 9:.1f}" '
-                    f'cy="{card_y + CARD_PAD + 22}" r="2.5" fill="{fill}"/>'
-                )
+        body.append(f'<g class="fade" style="animation-delay:{c * 90}ms">{"".join(col)}</g>')
 
-            y = card_y + CARD_TOP
-            for row in rows:
-                x = cx + CARD_PAD
-                for label, slug, w in row:
-                    d = icons.get(slug, "")
-                    page.append(_chip(x, y, label, d, accent, t))
-                    x += w + CHIP_GAP
-                    n_chips += 1
-                y += CHIP_H + ROW_GAP
-
-            page.append("</g>")
-            body.append("".join(page))
-
-        cards.append(f'<g class="fade" style="animation-delay:{c * 90}ms">{"".join(body)}</g>')
-
-        # Mosaic-tile wipe, clipped to this card, offset by the column
-        # stagger so the three cards' waves sweep in sequence rather than
-        # in lockstep. Starts below CARD_TOP so it never touches the title.
-        mosaics.append(
-            f'<g clip-path="url(#cc{c})" fill="{accent}">'
-            f'{mosaic_tiles(cx, card_y + CARD_TOP, tile_grid, -c * STAGGER)}</g>'
-        )
+    dividers = "".join(
+        f'<line x1="{PAD + c * (COL_W + GUT) + COL_W + GUT / 2:.1f}" y1="{col_y - 6}" '
+        f'x2="{PAD + c * (COL_W + GUT) + COL_W + GUT / 2:.1f}" y2="{col_y + content_h}" '
+        f'stroke="{t["border"]}" stroke-width="1" class="fade"/>'
+        for c in range(len(COLUMNS) - 1)
+    )
 
     # Panel title, so the README needs no markdown heading above the image.
     header_svg = (
@@ -345,9 +199,8 @@ def render(path=OUT):
     )
 
     alt = "Tech stack: " + "; ".join(
-        f"{title} - " + ", ".join(
-            lbl for _, items in pages for lbl, _ in items
-        ) for title, _, pages in COLUMNS
+        f"{title} - " + ", ".join(lbl for lbl, _ in items)
+        for title, _, items in COLUMNS
     )
 
     svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}" role="img" aria-label="{_esc(alt)}">
@@ -356,45 +209,33 @@ def render(path=OUT):
     <stop offset="0%" stop-color="{t["bg_top"]}"/>
     <stop offset="100%" stop-color="{t["bg_bottom"]}"/>
   </linearGradient>
-  {"".join(clips)}
   {pixel_texture("stackTex", t["emerald"])}
 </defs>
 <style>
   {pixel_font_face()}
   .fade {{ opacity:0; animation: sfade .45s ease-out forwards; }}
   @keyframes sfade {{ from {{ opacity:0; }} to {{ opacity:1; }} }}
-  /* Matches the card's starfield - _starfield() emits class="star". */
+  /* Matches the card's starfield - _starfield() emits class="star", reused
+     here for the header flourish too. */
   .star {{ animation: twinkle 4s ease-in-out infinite; }}
   @keyframes twinkle {{ 0%,100% {{ opacity:.15; }} 50% {{ opacity:.7; }} }}
   .tex {{ animation: texPulse 5s ease-in-out infinite; }}
   @keyframes texPulse {{ 0%,100% {{ opacity:.6; }} 50% {{ opacity:1; }} }}
-  /* Page swap: all {PAGE_N} pages sit at the same coordinates, one visible per
-     slot of the shared clock, hard cut with steps(1,end) - the mosaic wave
-     below is what visually covers the instant of the swap. */
-  .pg {{ opacity:0; animation: pgTurn {PAGE_N * PAGE_S:g}s steps(1,end) infinite; }}
-  @keyframes pgTurn {{ 0% {{ opacity:1; }}
-                       {100 / PAGE_N:.4f}%,100% {{ opacity:0; }} }}
-  /* Mosaic-tile wipe: every tile runs the identical brighten/dim shape, only
-     animation-delay differs (set per tile in mosaic_tiles()), so the shared
-     keyframes plus a diagonal spread of delays is what turns a static grid
-     into one glowing band sweeping corner to corner every page-turn. */
-  .tile {{ opacity:{TILE_BASE:g}; animation: tileWave {PAGE_S:g}s steps(1,end) infinite; }}
-  @keyframes tileWave {{ {_tile_keyframes()} }}
 </style>
 <rect width="{W}" height="{H}" rx="14" fill="url(#sbg)"/>
 <rect width="{W}" height="{H}" rx="14" fill="url(#stackTex)" class="tex"/>
 <rect x="0.5" y="0.5" width="{W - 1}" height="{H - 1}" rx="14" fill="none" stroke="{t["border"]}"/>
 {_starfield(W, H, count=40, seed=23)}
 {header_svg}
-{"".join(cards)}
-{"".join(mosaics)}
+{dividers}
+{"".join(body)}
 </svg>
 '''
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     # See the note in make_card.render: LF everywhere, or Windows and CI fight.
     with open(path, "w", encoding="utf-8", newline="\n") as f:
         f.write(svg)
-    return path, W, H, n_chips
+    return path, W, H, n_slots
 
 
 def _esc(s):
@@ -402,15 +243,8 @@ def _esc(s):
 
 
 def demo():
-    """Self-check: pages are uniform, every chip fits inside its own card, and
-    the file is well-formed and deterministic."""
-    for title, _, pages in COLUMNS:
-        assert len(pages) == PAGE_N, f"{title!r} has {len(pages)} pages, expected {PAGE_N}"
-    # The wave must be able to light the whole diagonal at once, or it reads
-    # as disconnected drift instead of one sheet covering the swap - see the
-    # comment on WAVE_HOLD.
-    assert WAVE_HOLD > WAVE_SPREAD, "WAVE_HOLD must exceed WAVE_SPREAD or the wave never fully connects"
-
+    """Self-check: every slot fits inside its own column, the file is
+    well-formed, and the render is deterministic."""
     p, w, h, n = render()
     svg = open(p, encoding="utf-8").read()
     assert svg.count("<svg") == 1 and svg.rstrip().endswith("</svg>")
@@ -419,32 +253,20 @@ def demo():
     # "Tools & Infra" is exactly that shape.
     import xml.etree.ElementTree as ET
     ET.parse(p)
-    assert n == sum(len(i) for _, _, pg in COLUMNS for _, i in pg), "chip count mismatch"
+    assert n == sum(len(items) for _, _, items in COLUMNS), "slot count mismatch"
 
-    # No chip may be wider than a card, spill out of its column, or fall
-    # outside the canvas.
     bounds = [(PAD + c * (COL_W + GUT), PAD + c * (COL_W + GUT) + COL_W)
               for c in range(len(COLUMNS))]
-    for x, y, cw in re.findall(
-        r'<rect x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="28" rx="7"', svg
-    ):
-        x, y, cw = float(x), float(y), float(cw)
-        assert cw <= INNER_W + 0.5, f"chip too wide for a card: {cw}"
-        assert any(lo + CARD_PAD - 0.5 <= x and x + cw <= hi - CARD_PAD + 0.5
-                   for lo, hi in bounds), f"chip outside its column: x={x}"
-        assert y + CHIP_H <= h, f"chip overflows bottom: y={y}"
-
-    # Tiles overhanging a card's right/bottom edge are expected (grid width is
-    # rounded up to a whole number of tiles) - the per-card clip-path is what
-    # actually contains them, so just confirm every mosaic group is clipped
-    # and something was drawn.
-    assert svg.count('<g clip-path="url(#cc') == len(COLUMNS), "mosaic group missing its clip"
-    assert svg.count('class="tile"') > 0, "no mosaic tiles rendered"
+    for x, y in re.findall(rf'<rect x="([\d.]+)" y="([\d.]+)" width="{SLOT}" height="{SLOT}" rx="4"', svg):
+        x, y = float(x), float(y)
+        assert any(lo - 0.5 <= x and x + SLOT <= hi + 0.5 for lo, hi in bounds), \
+            f"slot outside its column: x={x}"
+        assert y + SLOT <= h, f"slot overflows bottom: y={y}"
 
     before = svg
     render(p)
     assert open(p, encoding="utf-8").read() == before, "render is not deterministic"
-    print(f"ok - {p} ({w}x{h}, {n} chips over {PAGE_N} pages, {len(svg):,} bytes)")
+    print(f"ok - {p} ({w}x{h}, {n} slots, {len(svg):,} bytes)")
 
 
 if __name__ == "__main__":
