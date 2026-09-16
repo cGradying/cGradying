@@ -101,8 +101,15 @@ STAGGER = 0.45         # seconds each column lags the one to its left
 # along the diagonal, same trick as the meteor sequence in make_card.py uses
 # IMPACT/M_HIT to drive one wave from one scalar.
 TILE = 16
-WAVE_SPREAD = 1.1      # seconds the band takes to cross a card, corner to corner
-WAVE_HOLD = 0.5        # seconds one tile's brighten-then-dim takes
+WAVE_SPREAD = 1.0      # seconds the band takes to cross a card, corner to corner
+# WAVE_HOLD > WAVE_SPREAD is the invariant that makes the wave read as one
+# connected sheet instead of a thin stripe drifting past: it's how long ONE
+# tile stays lit, so if it's shorter than the time the band takes to cross,
+# no single moment ever has the whole diagonal lit at once - every tile is
+# lighting up or dimming alone, nothing ever looks joined together. The
+# overlap (WAVE_HOLD - WAVE_SPREAD) is the window where every tile from
+# corner to corner is lit simultaneously - checked in demo().
+WAVE_HOLD = 1.6
 TILE_BASE = 0.12       # resting opacity - tiles read as a faint grid, not blank
 TILE_LEVELS = (0.35, 0.65, 1.0)  # brighten steps, then mirrored on the way down
 WAVE_CENTER = 0.5       # 0-1: which point along the diagonal lands on the
@@ -399,6 +406,10 @@ def demo():
     the file is well-formed and deterministic."""
     for title, _, pages in COLUMNS:
         assert len(pages) == PAGE_N, f"{title!r} has {len(pages)} pages, expected {PAGE_N}"
+    # The wave must be able to light the whole diagonal at once, or it reads
+    # as disconnected drift instead of one sheet covering the swap - see the
+    # comment on WAVE_HOLD.
+    assert WAVE_HOLD > WAVE_SPREAD, "WAVE_HOLD must exceed WAVE_SPREAD or the wave never fully connects"
 
     p, w, h, n = render()
     svg = open(p, encoding="utf-8").read()
