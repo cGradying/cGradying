@@ -19,7 +19,7 @@
 
 An unofficial student app for PUP, not affiliated with the university. It signs in with your own account and keeps your classes, grades and deadlines on your device.
 
-- **[intportal-app](https://github.com/cGradying/intportal-app)**: the current app, for iOS and Android. Rust, Tauri and Svelte. SIS and eMabini, flashcards, notes, and an assistant that runs on the phone.
+- **[intportal-app](https://github.com/cGradying/intportal-app)**: the current app, for iOS and Android. Rust, Tauri and Svelte. One deadline list for SIS, eMabini and your own, a Markdown note editor with photos, flashcards, class meeting links, and LAR, an assistant that runs on the phone.
 - **[IntPortal](https://github.com/cGradying/IntPortal)**: the original macOS app in SwiftUI, now in maintenance.
 
 ---
