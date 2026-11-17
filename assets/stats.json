@@ -1,5 +1,5 @@
 {
-  "additions": 458524,
+  "additions": 381536,
   "calendar": [
     {
       "count": 0,
@@ -1466,50 +1466,50 @@
       "date": "2026-11-16"
     },
     {
-      "count": 61,
+      "count": 113,
       "date": "2026-11-17"
     }
   ],
-  "commits": 1934,
+  "commits": 2016,
   "contributed": 1,
-  "deletions": 75321,
-  "followers": 7,
-  "issues": 121,
+  "deletions": 67246,
+  "followers": 8,
+  "issues": 107,
   "languages": [
-    {
-      "color": "#F05138",
-      "name": "Swift",
-      "pct": 19.88356060035468
-    },
     {
       "color": "#f1e05a",
       "name": "JavaScript",
-      "pct": 18.981614223503392
+      "pct": 23.34820599631218
     },
     {
       "color": "#e34c26",
       "name": "HTML",
-      "pct": 14.993888953556047
+      "pct": 21.005133144984228
     },
     {
       "color": "#3178c6",
       "name": "TypeScript",
-      "pct": 14.56923969680993
+      "pct": 19.093199475200123
     },
     {
       "color": "#dea584",
       "name": "Rust",
-      "pct": 11.14815564510055
+      "pct": 14.673842320329857
     },
     {
       "color": "#ff3e00",
       "name": "Svelte",
-      "pct": 7.4030855649208815
+      "pct": 9.740531818874324
+    },
+    {
+      "color": "#663399",
+      "name": "CSS",
+      "pct": 7.702717285106408
     }
   ],
   "loc_skipped": false,
-  "prs": 244,
-  "repos": 26,
-  "stars": 0,
-  "total_contributions": 2323
+  "prs": 230,
+  "repos": 25,
+  "stars": 23,
+  "total_contributions": 2375
 }
