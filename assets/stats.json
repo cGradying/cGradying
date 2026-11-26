@@ -1,5 +1,5 @@
 {
-  "additions": 407537,
+  "additions": 419640,
   "calendar": [
     {
       "count": 0,
@@ -1474,50 +1474,50 @@
       "date": "2026-11-25"
     },
     {
-      "count": 1,
+      "count": 25,
       "date": "2026-11-26"
     }
   ],
-  "commits": 2950,
+  "commits": 2979,
   "contributed": 1,
-  "deletions": 74918,
+  "deletions": 75211,
   "followers": 9,
   "issues": 121,
   "languages": [
     {
       "color": "#e34c26",
       "name": "HTML",
-      "pct": 44.33937998142137
+      "pct": 43.05675179145859
     },
     {
       "color": "#f1e05a",
       "name": "JavaScript",
-      "pct": 15.746340063418986
+      "pct": 15.284470023215853
     },
     {
       "color": "#3178c6",
       "name": "TypeScript",
-      "pct": 13.866226030595742
+      "pct": 14.904166765300811
     },
     {
       "color": "#dea584",
       "name": "Rust",
-      "pct": 10.341441461394991
+      "pct": 11.443543930957839
     },
     {
       "color": "#ff3e00",
       "name": "Svelte",
-      "pct": 7.568782537500193
+      "pct": 7.370243295255904
     },
     {
       "color": "#663399",
       "name": "CSS",
-      "pct": 5.189537598279047
+      "pct": 5.089233822867718
     }
   ],
   "loc_skipped": false,
-  "prs": 257,
+  "prs": 264,
   "repos": 26,
   "stars": 23,
-  "total_contributions": 3353
+  "total_contributions": 3377
 }
